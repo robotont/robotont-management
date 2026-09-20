@@ -1,5 +1,7 @@
 # Robotont Management
 
+# Overview
+
 Centralized management and monitoring for Robotont robots.
 
 Initial scope:
@@ -22,3 +24,11 @@ Future work may include:
 - More advanced inventory management
 - VPN / overlay networking
 - Centralized logging
+
+## Architecture
+
+<img src=".images/architecture.png" width="500" title="Architecture">
+
+---
+
+<img src=".images/architecture_detailed.png" width="1000" title="Architecture">
