@@ -1,0 +1,47 @@
+# Robotont software release 2026.09-lite (vcstool format; `vcs import --input 2026.09-lite.repos src`).
+#
+# Exactly what the first Robotont 3 Lite (robotont-123, Raspberry Pi 5) received from the
+# robotont-setup jazzy-rpi playbook on 2026-09-26: the `jazzy` heads of the Lite package list,
+# read back from the robot with `vcs export --exact`. Use this release for Lite robots; the NUC
+# release (2026.09.repos) pins the older jazzy-devel heads the NUC robots run.
+repositories:
+  robotont/robotont_driver:
+    type: git
+    url: https://github.com/robotont/robotont_driver.git
+    version: 41abb27f67ea8f31d0915fe79040c95b6e989b16
+  robotont/robotont_msgs:
+    type: git
+    url: https://github.com/robotont/robotont_msgs.git
+    version: 3254b7656ae490aad09b768d83451c30f496af8d
+  robotont/robotont_description:
+    type: git
+    url: https://github.com/robotont/robotont_description.git
+    version: 138f2f19eef60172e17fe703c3c0f6e0dbda51ba
+  robotont/robotont_lite_description:
+    type: git
+    url: https://github.com/robotont/robotont_lite_description.git
+    version: 4e962dc3bb22808b54e6e0e41d875b7e8fe8df20
+  robotont/robotont_support:
+    type: git
+    url: https://github.com/robotont/robotont_support.git
+    version: a8d171f0e066f86bf958b9d0250e09d9312a210f
+  robotont/robotont_navigation:
+    type: git
+    url: https://github.com/robotont/robotont_navigation.git
+    version: e472442ee647a741080f6ec5558d01ddca81c686
+  laserscan_to_ranges:
+    type: git
+    url: https://github.com/ut-ims-robotics/laserscan_to_ranges.git
+    version: f316af68c0bbb65139ba6a69f86219970a971f43
+  robotont/demo_teleop:
+    type: git
+    url: https://github.com/robotont-demos/demo_teleop.git
+    version: 2de5d6d6aa98934e53497ff63f76e1e0f0ab1e00
+  robotont/demo_slam:
+    type: git
+    url: https://github.com/robotont-demos/demo_slam.git
+    version: c34045dbdae64db7846276f258930b4365ac6c37
+  rplidar_ros:
+    type: git
+    url: https://github.com/Slamtec/rplidar_ros.git
+    version: 24cc9b6dea97e045bda1408eaa867ce730fd3fc3

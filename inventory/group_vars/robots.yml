@@ -1,0 +1,31 @@
+---
+# Variables the robotont-setup playbooks expect (compare external/robotont-setup/ansible/hosts).
+
+# SSH login for Ansible AND the robot's desktop user: owner of ~/ros2_ws and User= of
+# robotont.service. Upstream requires these to be the same account.
+ansible_user: peko
+
+# Upstream variable name for the robot number.
+id: "{{ robotont_id }}"
+
+# Secrets are never stored here:
+#   wifi_pass              hotspot password  -> Semaphore environment "robotont-secrets",
+#                                               or `-e wifi_pass=...` on the command line
+#   sudo password of peko  become password   -> Semaphore inventory "sudo credentials",
+#                                               or `-K` on the command line
+# Do not set ansible_private_key_file or ansible_ssh_pass here: inventory variables override the
+# key that Semaphore passes on the command line.
+
+# The account that owns the runtime on the robot (systemd User=, docker group, workspace).
+robotont_user: peko
+
+# Container runtime (docs/07-container-runtime.md). Deploy with playbooks/deploy_runtime.yml;
+# behaviour does not change until a preset other than "host" is selected with switch_preset.yml.
+robotont_release: "2026.09"             # robot/releases/<release>.repos, also the image tag
+robotont_image_repo: ghcr.io/robotont   # images are built locally under this name until GHCR exists
+robotont_default_preset: host           # first deploy keeps the host-installed ROS running
+robotont_realsense: true                # the NUC robots run the RealSense bringup today
+robotont_lidar: false
+robotont_camera: false
+robotont_slam: false
+robotont_namespace: ""

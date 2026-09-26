@@ -1,0 +1,16 @@
+diff --git a/ansible/roles/robots/tasks/main.yaml b/ansible/roles/robots/tasks/main.yaml
+index ec7fa7e..5233b48 100644
+--- a/ansible/roles/robots/tasks/main.yaml
++++ b/ansible/roles/robots/tasks/main.yaml
+@@ -23,6 +23,11 @@
+     - speech-dispatcher
+     - accounts-daemon
+   become: true
++  # Ubuntu Server has none of the desktop services: tolerate "not found", fail on anything else.
++  register: disable_service
++  failed_when: >-
++    disable_service.failed | default(false)
++    and 'Could not find the requested service' not in (disable_service.msg | default(''))
+ 
+ #- name: Cleaning up launcher icons
+ #  command: gsettings set org.gnome.shell favorite-apps "['firefox.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Terminal.desktop']"

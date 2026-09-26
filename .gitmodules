@@ -1,0 +1,8 @@
+[submodule "external/robotont-setup"]
+	path = external/robotont-setup
+	url = https://github.com/robotont/robotont-setup.git
+	branch = jazzy-devel-veiko
+[submodule "external/robotont-setup-rpi"]
+	path = external/robotont-setup-rpi
+	url = https://github.com/robotont/robotont-setup.git
+	branch = jazzy-rpi

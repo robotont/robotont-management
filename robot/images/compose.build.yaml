@@ -1,0 +1,26 @@
+# Image build definitions. Used by playbooks/build_images.yml on the robots (native architecture,
+# no registry needed) and later by GitHub Actions. Presets reference the images by name only, so
+# nothing changes there when images start coming from GHCR.
+#
+#   docker compose --env-file /etc/robotont/robotont.env -f /opt/robotont/images/compose.build.yaml build robotont-ros
+#   docker compose --env-file /etc/robotont/robotont.env -f /opt/robotont/images/compose.build.yaml --profile student build
+services:
+  robotont-ros:
+    image: ${ROBOTONT_IMAGE_REPO}/robotont-ros:${ROBOTONT_RELEASE}
+    build:
+      context: ./robotont-ros
+      additional_contexts:
+        releases: ../releases            # the pinned release files (robot/releases in the repository)
+      args:
+        RELEASE: ${ROBOTONT_RELEASE}
+        BASE_IMAGE: ${ROBOTONT_BASE_IMAGE:-ros:jazzy-ros-base}
+
+  # Phase D3
+  robotont-student:
+    image: ${ROBOTONT_IMAGE_REPO}/robotont-student:${ROBOTONT_RELEASE}
+    build:
+      context: ./robotont-student
+      args:
+        RELEASE: ${ROBOTONT_RELEASE}
+        IMAGE_REPO: ${ROBOTONT_IMAGE_REPO}
+    profiles: ["student"]

@@ -1,0 +1,8 @@
+---
+# Collections needed by the upstream robotont-setup roles: locale_gen lives in community.general,
+# and the Raspberry Pi branch also uses community.general.ini_file.
+# Local install (downloads from Ansible Galaxy):
+#   ansible-galaxy collection install -r collections/requirements.yml
+# Semaphore installs this file automatically when it is present in the repository.
+collections:
+  - name: community.general

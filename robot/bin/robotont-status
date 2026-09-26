@@ -1,0 +1,23 @@
+#!/bin/bash
+# robotont-status [--json]: show the robot runtime state written by robotont-metrics.
+# Works on the host and inside every preset container (/run/robotont is mounted read-only).
+set -euo pipefail
+F="${ROBOTONT_STATUS_FILE:-/run/robotont/status.json}"
+[ -r "$F" ] || { echo "no status yet ($F missing): is robotont-metrics.timer running?" >&2; exit 1; }
+if [ "${1:-}" = "--json" ]; then cat "$F"; exit 0; fi
+python3 - "$F" <<'PY'
+import json, sys, time
+s = json.load(open(sys.argv[1]))
+age = int(time.time()) - int(s.get("time", 0))
+print(f"preset:   {s.get('preset')}    release: {s.get('release') or '-'}    firmware: {s.get('firmware') or '-'}")
+print(f"service:  {s.get('service')}    docker: {'ok' if s.get('docker') else 'unavailable'}    (status {age}s old)")
+print("devices:  " + "  ".join(f"{d}={'yes' if v else 'no'}" for d, v in s.get("devices", {}).items()))
+containers = s.get("containers", [])
+if containers:
+    print("containers:")
+    for c in containers:
+        devices = ",".join(c.get("devices", [])) or "-"
+        print(f"  {c['name']:<22} {c['state']:<10} restarts={c.get('restarts', 0):<3} devices={devices:<28} {c.get('image', '')}")
+else:
+    print("containers: none")
+PY

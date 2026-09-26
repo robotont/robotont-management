@@ -1,0 +1,14 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart robotont
+  ansible.builtin.systemd_service:
+    name: robotont.service
+    state: restarted
+
+- name: Restart robotont-metrics timer
+  ansible.builtin.systemd_service:
+    name: robotont-metrics.timer
+    state: restarted

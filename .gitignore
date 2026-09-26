@@ -1,0 +1,10 @@
+# Semaphore secrets and runtime data
+server/.env
+server/data/
+
+# Ansible
+.ansible/
+*.retry
+
+# macOS
+.DS_Store

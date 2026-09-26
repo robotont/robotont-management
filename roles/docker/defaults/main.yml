@@ -1,0 +1,13 @@
+---
+# Users that may talk to the Docker daemon (root-equivalent; the robot user already has sudo).
+docker_users:
+  - "{{ robotont_user }}"
+# Prometheus-style metrics of the daemon itself; not scraped yet (docs/07).
+docker_metrics_addr: "127.0.0.1:9323"
+docker_apt_arch: "{{ 'amd64' if ansible_facts.architecture == 'x86_64' else 'arm64' }}"
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin

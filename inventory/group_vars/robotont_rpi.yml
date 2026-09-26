@@ -1,0 +1,27 @@
+---
+# Robotont 3 Lite with Raspberry Pi 5: provisioned by external/robotont-setup-rpi (branch jazzy-rpi).
+robotont_generation: "3lite"
+
+# Ubuntu Server instead of the Desktop image: roles/robotont_headless adds NetworkManager and
+# BlueZ before the upstream playbook runs. Set to false for a robot installed from the Desktop image.
+robotont_headless: true
+
+# The upstream README runs this branch with `-K -b`: its pre-tasks (user, auto-login) have no
+# become of their own. This is the inventory equivalent of -b for these hosts; tasks that must
+# run as peko set become_user themselves, as upstream does.
+ansible_become: true
+
+# Variables the jazzy-rpi playbooks expect (compare external/robotont-setup-rpi/ansible/hosts.example).
+robotont_group: "{{ robotont_user }}"
+robotont_password: ""            # only used when the user does not exist yet (ours does)
+# Provided by the Semaphore environment or with -e, never in git:
+#   wifi_hotspot_password    password of the hotspot robotont-<id> (8 or more characters)
+#   wifi_client_ssid         lab Wi-Fi the robot joins when it is in range
+#   wifi_client_password
+
+# Container runtime defaults for Lite robots (docs/07).
+robotont_lidar: true
+robotont_camera: false           # true only with the IMX500 camera fitted (needs the custom kernel)
+robotont_realsense: false
+robotont_namespace: "rt{{ robotont_id }}"
+robotont_driver_devices: "mainboard,lidar,gamepad"

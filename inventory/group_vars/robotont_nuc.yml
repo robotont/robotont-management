@@ -1,0 +1,5 @@
+---
+# Robotont 3 with Intel NUC: provisioned by external/robotont-setup (branch jazzy-devel-veiko).
+# Valid values: "3" (NUC). "3lite" (Raspberry Pi 5) is added together with
+# external/robotont-setup-rpi in the next iteration.
+robotont_generation: "3"

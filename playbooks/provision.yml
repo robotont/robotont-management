@@ -1,0 +1,92 @@
+---
+# Provision Robotont (v1): runs the existing robotont-setup playbook UNCHANGED from the pinned
+# submodules: external/robotont-setup (jazzy-devel-veiko) for Robotont 3 on Intel NUC, and
+# external/robotont-setup-rpi (jazzy-rpi) for Robotont 3 Lite on Raspberry Pi 5.
+#
+# What the upstream run does, every time: apt upgrade, ROS 2 Jazzy install, workspace wipe and
+# full colcon build (30 to 60 minutes), Wi-Fi hotspot robotont-<id>, then an unconditional reboot.
+# Run it over Ethernet, and limit the first run to a single robot:  --limit robotont-1
+# Lite robots without the IMX500 camera:  --skip-tags camera
+#
+# Required variables:
+#   id                    from robotont_id in the inventory (group_vars/robots.yml)
+#   robotont_generation   "3" (NUC) or "3lite" (Raspberry Pi), from the group_vars
+#   NUC:  wifi_pass                                             Semaphore environment or -e
+#   Lite: wifi_hotspot_password, wifi_client_ssid, wifi_client_password
+# Sudo password: Semaphore sudo credentials, or -K on the command line.
+
+- name: Preflight checks for robotont-setup
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Check the common variables
+      ansible.builtin.assert:
+        that:
+          - id is defined
+          - robotont_generation is defined
+          - robotont_generation in ['3', '3lite']
+        fail_msg: "Set robotont_id and robotont_generation (\"3\" or \"3lite\") in the inventory."
+        quiet: true
+
+    - name: Check the variables the NUC branch needs
+      ansible.builtin.assert:
+        that:
+          - wifi_pass is defined
+          - wifi_pass | length >= 8
+        fail_msg: "Set wifi_pass (8 or more characters, the WPA-PSK minimum) in the Semaphore environment or with -e wifi_pass=..."
+        quiet: true
+      when: robotont_generation == '3'
+
+    - name: Check the variables the Raspberry Pi branch needs
+      ansible.builtin.assert:
+        that:
+          - wifi_hotspot_password is defined
+          - wifi_hotspot_password | length >= 8
+          - wifi_client_ssid is defined
+          - wifi_client_password is defined
+        fail_msg: "Set wifi_hotspot_password (8 or more characters), wifi_client_ssid and wifi_client_password in the Semaphore environment or with -e."
+        quiet: true
+      when: robotont_generation == '3lite'
+
+# Ubuntu Server prerequisites (NetworkManager, BlueZ) for Lite robots not installed from the
+# Desktop image. No-op where they are already in place.
+- name: Prepare headless Ubuntu Server prerequisites
+  hosts: robotont_rpi
+  become: true
+  roles:
+    - role: robotont_headless
+      when: robotont_headless | default(true)
+
+# The jazzy-rpi branch assumes the Desktop image in one task (disabling desktop services). The
+# patch under patches/ makes that task tolerate missing units. Applied on the controller to the
+# submodule checkout, idempotently, so that fresh checkouts (Semaphore) get it too.
+- name: Apply the local patches to the jazzy-rpi checkout
+  hosts: robotont_rpi
+  gather_facts: false
+  vars:
+    ansible_become: false        # runs on the controller; the group's ansible_become must not apply
+    rpi_checkout: "{{ playbook_dir }}/../external/robotont-setup-rpi"
+    rpi_patch: "{{ playbook_dir }}/../patches/robotont-setup-rpi/0001-tolerate-missing-desktop-services.patch"
+  tasks:
+    - name: Check whether the patch is already applied
+      ansible.builtin.command: git -C {{ rpi_checkout | quote }} apply --check --reverse {{ rpi_patch | quote }}
+      delegate_to: localhost
+      run_once: true
+      register: patch_applied
+      changed_when: false
+      failed_when: false
+
+    - name: Apply the patch
+      ansible.builtin.command: git -C {{ rpi_checkout | quote }} apply {{ rpi_patch | quote }}
+      delegate_to: localhost
+      run_once: true
+      when: patch_applied.rc != 0
+
+# Robotont 3 with Intel NUC. The `when` is inherited by every imported task, so hosts of another
+# generation are skipped instead of receiving the wrong branch.
+- import_playbook: ../external/robotont-setup/ansible/robots.yaml
+  when: robotont_generation == '3'
+
+# Robotont 3 Lite with Raspberry Pi 5.
+- import_playbook: ../external/robotont-setup-rpi/ansible/robots.yaml
+  when: robotont_generation == '3lite'

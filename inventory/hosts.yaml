@@ -1,0 +1,37 @@
+---
+# Ansible inventory for the Robotont fleet.
+#
+# This file answers one question only: how does Ansible reach a given Robotont?
+# No locations, owners or lifecycle data (project context, sections 5 and 12).
+#
+# Groups:
+#   robots        the group the robotont-setup playbooks target; do not rename
+#   robotont_nuc  Robotont 3 with Intel NUC  -> external/robotont-setup (branch jazzy-devel-veiko)
+#   robotont_rpi  Robotont 3 Lite, Raspberry Pi 5 -> external/robotont-setup-rpi (next iteration)
+#
+# Host names follow the robotont-setup convention robotont-<id>. On the robot the same number
+# becomes the hostname, ROS_DOMAIN_ID and the hotspot address 192.168.200.<id>, so keep
+# robotont_id equal to the number in the name. group_vars/robots.yml maps it to the upstream
+# variable `id`.
+#
+# ansible_host: an IP address or a DHCP-reserved DNS name. mDNS names such as robotont-1.local
+# work from a laptop but usually not from inside the Semaphore container.
+# The addresses below are examples.
+
+all:
+  children:
+    robots:
+      children:
+        robotont_nuc:
+          hosts:
+            robotont-1:
+              ansible_host: 192.168.1.21
+              robotont_id: 1
+            robotont-2:
+              ansible_host: 192.168.1.22
+              robotont_id: 2
+        robotont_rpi:
+          hosts:
+            robotont-123:
+              ansible_host: robotont-123.local
+              robotont_id: 123

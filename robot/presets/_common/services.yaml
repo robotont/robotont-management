@@ -1,0 +1,89 @@
+# Shared service definitions for Robotont presets. Preset files reference these with `extends`
+# so that host networking, IPC, device access and labels are written once.
+#
+# Variables come from /etc/robotont/robotont.env (passed as --env-file by robotont-preset) and
+# ROBOTONT_PRESET is set by robotont-preset itself. See robot/presets/README.md.
+services:
+  # Anything that speaks ROS 2 on this robot.
+  ros-app:
+    network_mode: host          # DDS multicast discovery with laptops; "ports:" is ignored in this mode
+    ipc: host                   # Fast DDS shared-memory transport between containers and host processes
+    init: true                  # tini reaps the children of ros2 launch
+    restart: unless-stopped     # Docker restarts a crashed container; systemd owns the compose process
+    stop_grace_period: 10s
+    environment:
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
+      ROBOTONT_ID: "${ROBOTONT_ID}"
+      ROBOTONT_GENERATION: "${ROBOTONT_GENERATION}"
+      ROBOTONT_RELEASE: "${ROBOTONT_RELEASE}"
+    volumes:
+      - /run/robotont:/run/robotont:ro      # status.json written by robotont-metrics
+    labels:
+      robotont.preset: "${ROBOTONT_PRESET:-unknown}"
+      robotont.devices: ""
+
+  # Anything that opens hardware. /dev is bind-mounted so that the host udev symlinks
+  # (/dev/robotont, /dev/lidar) are visible and a replugged device is picked up without a
+  # container restart; the cgroup rules limit which device majors may be opened. The read-only
+  # mount forbids mknod/rm/chmod from inside, not device I/O (verify once on a robot).
+  hardware:
+    extends: ros-app
+    volumes:
+      - /dev:/dev:ro
+    device_cgroup_rules:
+      - "c 166:* rmw"     # ttyACM: mainboard (/dev/robotont)
+      - "c 188:* rmw"     # ttyUSB: RPLidar (/dev/lidar)
+      - "c 13:* rmw"      # input: gamepad (/dev/input/js*, event*)
+      - "c 189:* rmw"     # /dev/bus/usb: RealSense via libusb
+      - "c 81:* rmw"      # video4linux: RealSense UVC nodes
+
+  # The robot bringup (driver, sensors, teleop): what robotont.service ran on the host.
+  driver:
+    extends: hardware
+    image: ${ROBOTONT_IMAGE_REPO}/robotont-ros:${ROBOTONT_RELEASE}
+    container_name: robotont-driver      # one driver per robot; a second one fails at `up`
+    command: ros2 launch robotont_support robotont_bringup.launch.py ${ROBOTONT_BRINGUP_ARGS:-}
+    labels:
+      robotont.preset: "${ROBOTONT_PRESET:-unknown}"
+      robotont.devices: "${ROBOTONT_DRIVER_DEVICES:-mainboard,gamepad}"
+    oom_score_adj: -500
+
+  # Student development container (Phase D3): sshd on port 2222, the whole home persists on the
+  # host, no hardware. Students talk to the driver container over DDS.
+  student:
+    extends: ros-app
+    image: ${ROBOTONT_IMAGE_REPO}/robotont-student:${ROBOTONT_RELEASE}
+    container_name: robotont-student
+    command: /usr/sbin/sshd -D -e
+    environment:
+      STUDENT_PASSWORD: "${STUDENT_PASSWORD:-}"
+    volumes:
+      - ${ROBOTONT_USER_HOME:-/home/peko}/student:/home/peko
+      - ${ROBOTONT_USER_HOME:-/home/peko}/.ssh:/etc/ssh/host-user-keys:ro
+      - /etc/ssh/ssh_host_ed25519_key:/etc/ssh/hostkeys/ssh_host_ed25519_key:ro
+      - /etc/ssh/ssh_host_ed25519_key.pub:/etc/ssh/hostkeys/ssh_host_ed25519_key.pub:ro
+    labels:
+      robotont.preset: "${ROBOTONT_PRESET:-unknown}"
+      robotont.devices: ""
+      robotont.role: student
+    cpus: 3.0
+    mem_limit: 6g
+    pids_limit: 2048
+    oom_score_adj: 500
+    stop_grace_period: 5s
+
+  # Student container that owns the hardware (learning variant, Phase D3). Runs without the
+  # driver container: students start the driver themselves.
+  student-hw:
+    extends: student
+    volumes:
+      - /dev:/dev:ro
+    device_cgroup_rules:
+      - "c 166:* rmw"
+      - "c 188:* rmw"
+      - "c 13:* rmw"
+      - "c 189:* rmw"
+      - "c 81:* rmw"
+    labels:
+      robotont.preset: "${ROBOTONT_PRESET:-unknown}"
+      robotont.devices: "mainboard,lidar,gamepad,realsense"

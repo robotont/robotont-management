@@ -1,0 +1,7 @@
+---
+# Set up (or re-template) robotont.service on the robots with the upstream playbooks. Seconds.
+# Upstream does not run daemon-reload: run restart_services.yml afterwards if the unit changed.
+- import_playbook: ../external/robotont-setup/ansible/robotont_service.yaml
+  when: robotont_generation == '3'
+- import_playbook: ../external/robotont-setup-rpi/ansible/robotont_service.yaml
+  when: robotont_generation == '3lite'

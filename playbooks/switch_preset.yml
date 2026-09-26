@@ -1,0 +1,62 @@
+---
+# Switch the active preset on the selected robots.
+#   Semaphore: survey variable `preset` (host | driver | test-talker | demo-* ...), plus --limit
+#   CLI:       ansible-playbook playbooks/switch_preset.yml -e preset=driver --limit robotont-1
+- name: Switch the Robotont preset
+  hosts: robots
+  become: true
+  vars:
+    preset_wait_seconds: 60
+  tasks:
+    - name: Check that a preset was given
+      ansible.builtin.assert:
+        that:
+          - preset is defined
+          - preset is match('^[a-z0-9][a-z0-9-]{0,30}$')
+        fail_msg: "Pass -e preset=<name> (Semaphore: survey variable preset). Names use [a-z0-9-], max 31 characters."
+        quiet: true
+
+    - name: Validate the preset on the robot
+      ansible.builtin.command: /usr/local/bin/robotont-preset check {{ preset | quote }}
+      become_user: "{{ robotont_user }}"
+      changed_when: false
+
+    - name: Read the currently active preset
+      ansible.builtin.command: /usr/local/bin/robotont-preset current
+      changed_when: false
+      register: current_preset
+
+    - name: Write the new preset
+      ansible.builtin.copy:
+        content: "{{ preset }}\n"
+        dest: /etc/robotont/preset
+        owner: "{{ robotont_user }}"
+        group: "{{ robotont_user }}"
+        mode: "0644"
+
+    - name: Restart robotont.service with the new preset
+      ansible.builtin.systemd_service:
+        name: robotont.service
+        state: restarted
+
+    - name: Wait for robotont.service to be active
+      ansible.builtin.command: systemctl is-active robotont.service
+      register: service_state
+      changed_when: false
+      failed_when: false
+      retries: "{{ (preset_wait_seconds / 5) | int }}"
+      delay: 5
+      until: service_state.stdout == 'active'
+
+    - name: Give the containers time to start
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: Show the runtime status
+      ansible.builtin.command: /usr/local/bin/robotont-preset status
+      changed_when: false
+      register: preset_status
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ current_preset.stdout }} -> {{ preset }}\n{{ preset_status.stdout }}"

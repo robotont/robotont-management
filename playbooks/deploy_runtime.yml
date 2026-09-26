@@ -1,0 +1,13 @@
+---
+# Deploy the container runtime: Docker Engine, /opt/robotont (presets, image definitions,
+# release files), /etc/robotont, robotont.service (replacing the robotont-setup unit) and the
+# metrics timer. The first deploy on an adopted robot selects preset "host": nothing changes in
+# behaviour until someone runs switch_preset.yml. Safe to re-run.
+- name: Deploy the Robotont container runtime
+  hosts: robots
+  become: true
+  roles:
+    - docker
+    - robotont_presets
+
+- import_playbook: healthcheck.yml

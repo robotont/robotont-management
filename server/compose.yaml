@@ -1,0 +1,35 @@
+# Semaphore UI for the Robotont fleet (v1: runs on the maintainer's machine).
+#
+#   cp server/.env.example server/.env      # then edit the admin credentials and the encryption key
+#   docker compose -f server/compose.yaml --env-file server/.env up -d
+#   open http://localhost:3000
+#
+# The image tag is pinned. Upgrading Semaphore is a deliberate change here, never `latest`.
+name: robotont
+
+services:
+  semaphore:
+    image: semaphoreui/semaphore:v2.19.14
+    container_name: robotont-semaphore
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    environment:
+      SEMAPHORE_DB_DIALECT: bolt
+      SEMAPHORE_DB_HOST: /var/lib/semaphore/database.boltdb
+      TZ: Europe/Tallinn
+    volumes:
+      - semaphore_data:/var/lib/semaphore      # BoltDB database and key store
+      - semaphore_config:/etc/semaphore        # config.json generated on first start
+      - semaphore_tmp:/tmp/semaphore           # repository checkouts and task workspaces
+      # Fallback if Semaphore's git checkout does not initialise submodules (docs/semaphore-setup.md):
+      # mount this working tree and register the repository as the local path
+      # /repositories/robotont-management.
+      # - ..:/repositories/robotont-management
+
+volumes:
+  semaphore_data:
+  semaphore_config:
+  semaphore_tmp:

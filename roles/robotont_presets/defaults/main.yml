@@ -1,0 +1,30 @@
+---
+# The account that owns the runtime (systemd User=, docker group, workspace). Students use it too.
+robotont_user: peko
+robotont_root: /opt/robotont
+ros_distribution: jazzy
+
+# Release and images (docs/04 section 2, docs/07).
+robotont_release: "2026.09"                 # robot/releases/<release>.repos, also the image tag
+robotont_image_repo: ghcr.io/robotont       # images are built locally under this name until GHCR exists
+robotont_base_image: ros:jazzy-ros-base
+
+# Preset written on the FIRST deploy only (operational state afterwards, see docs/07).
+robotont_default_preset: host
+
+# Bringup configuration, rendered into /etc/robotont/robotont.env.
+robotont_generation: "3"
+robotont_namespace: ""
+robotont_realsense: true                    # what the NUC robots run today (jazzy-devel bringup default)
+robotont_lidar: false
+robotont_camera: false
+robotont_slam: false
+robotont_ros_domain_id: "{{ robotont_id }}"
+robotont_host_ws: "/home/{{ robotont_user }}/ros2_ws"
+robotont_driver_devices: "mainboard,gamepad"
+robotont_bringup_args: >-
+  generation:={{ robotont_generation }} realsense:={{ robotont_realsense | string | lower }}{% if robotont_generation == '3lite' %} namespace:={{ robotont_namespace }} lidar:={{ robotont_lidar | string | lower }} camera:={{ robotont_camera | string | lower }} slam:={{ robotont_slam | string | lower }}{% endif %}
+
+# Monitoring hooks.
+robotont_metrics_interval: 15s
+robotont_textfile_dir: /var/lib/prometheus/node-exporter

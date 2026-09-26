@@ -1,0 +1,38 @@
+# Robotont software release 2026.09 (vcstool format; `vcs import --input 2026.09.repos src`).
+#
+# Pins exactly what the NUC robots run today: the `jazzy-devel` heads that robotont-setup
+# (branch jazzy-devel-veiko, roles/ros/files_for_robots/.rosinstall) imports, read from the local
+# clones on 2026-09-23. Container behaviour therefore equals host behaviour, including the known
+# bringup quirks (docs/07). The next release should move to the `jazzy` heads once the upstream
+# fixes from docs/05 section 4 are in.
+#
+# TODO (needs GitHub access): pin laserscan_to_ranges and demo_teleop to commit SHAs as well.
+repositories:
+  robotont/robotont_driver:
+    type: git
+    url: https://github.com/robotont/robotont_driver.git
+    version: ff88773343e0f19563db90ce47d2b6836a21d38a   # jazzy-devel, 2025-12-18
+  robotont/robotont_msgs:
+    type: git
+    url: https://github.com/robotont/robotont_msgs.git
+    version: 3254b7656ae490aad09b768d83451c30f496af8d   # jazzy-devel, 2024-09-13
+  robotont/robotont_description:
+    type: git
+    url: https://github.com/robotont/robotont_description.git
+    version: 76d01260b189160c00ce2b1832d31feca6d828b1   # jazzy-devel, 2025-10-28
+  robotont/robotont_nuc_description:
+    type: git
+    url: https://github.com/robotont/robotont_nuc_description.git
+    version: d1c4c06e88571636864083984875d3e6c095158c   # jazzy-devel, 2025-10-28
+  robotont/robotont_support:
+    type: git
+    url: https://github.com/robotont/robotont_support.git
+    version: c718ef88d8708588de2a0244dade68fc5195603a   # jazzy-devel, 2025-10-29 (flat bringup: realsense default true)
+  laserscan_to_ranges:
+    type: git
+    url: https://github.com/ut-ims-robotics/laserscan_to_ranges.git
+    version: jazzy-devel                                  # TODO pin SHA
+  robotont/demo_teleop:
+    type: git
+    url: https://github.com/robotont-demos/demo_teleop.git
+    version: jazzy-devel                                  # TODO pin SHA

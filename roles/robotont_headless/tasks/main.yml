@@ -1,0 +1,147 @@
+---
+# Ubuntu Server prerequisites for the upstream robotont-setup playbooks, which assume the Ubuntu
+# Desktop image: NetworkManager managing every interface (the hotspot and client Wi-Fi profiles
+# are NetworkManager keyfiles), avahi for .local names, BlueZ for gamepad pairing. Idempotent,
+# and a no-op on a Desktop install, where all of it is already in place.
+#
+# The handover from systemd-networkd to NetworkManager is applied only once (when the renderer
+# file changes) and defensively: the configuration is rendered first, a Wi-Fi-only host is refused
+# unless a Wi-Fi profile was rendered, then netplan apply and a NetworkManager restart run in one
+# detached shell (NetworkManager gives up on an interface that another wpa_supplicant still holds
+# and never retries; the restart after the apply makes it re-acquire the interface), and the play
+# waits for the host to come back.
+#
+# Address the host by name (robotont-N.local) or a DHCP reservation, never by an address pinned
+# before this role runs: NetworkManager identifies itself to DHCP differently from networkd, so
+# the leases can change during the handover.
+# The Ubuntu Server image written by Raspberry Pi Imager came with only the release and security
+# suites configured; without <release>-updates apt cannot resolve the -dev packages that
+# ros-jazzy-desktop pulls in ("held broken packages"). Add the updates suite when it is missing.
+- name: Check whether the updates suite is configured
+  ansible.builtin.shell: >-
+    grep -rlsE '^(Suites:.*\b{{ ansible_facts.distribution_release }}-updates\b|deb .*\b{{ ansible_facts.distribution_release }}-updates\b)'
+    /etc/apt/sources.list /etc/apt/sources.list.d/
+  register: updates_suite
+  changed_when: false
+  failed_when: false
+
+- name: Add the updates suite
+  ansible.builtin.deb822_repository:
+    name: ubuntu-updates
+    types: deb
+    uris: "{{ 'http://ports.ubuntu.com/ubuntu-ports/' if ansible_facts.architecture != 'x86_64' else 'http://archive.ubuntu.com/ubuntu/' }}"
+    suites: "{{ ansible_facts.distribution_release }}-updates"
+    components: [main, restricted, universe, multiverse]
+    signed_by: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+  when: updates_suite.rc != 0
+  register: updates_added
+
+- name: Refresh the apt cache after adding the updates suite
+  ansible.builtin.apt:
+    update_cache: true
+  when: updates_added.changed
+
+- name: Install NetworkManager, avahi and BlueZ
+  ansible.builtin.apt:
+    name:
+      - network-manager
+      - avahi-daemon
+      - bluez
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Check for cloud-init
+  ansible.builtin.stat:
+    path: /etc/cloud/cloud.cfg.d
+  register: cloud_cfg
+
+- name: Stop cloud-init from rewriting the network configuration on boot
+  ansible.builtin.copy:
+    content: "network: {config: disabled}\n"
+    dest: /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+    mode: "0644"
+  when: cloud_cfg.stat.exists
+
+- name: Let NetworkManager manage every interface (netplan renderer)
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (roles/robotont_headless). Let NetworkManager manage all devices,
+      # as on the Ubuntu Desktop image that robotont-setup expects.
+      network:
+        version: 2
+        renderer: NetworkManager
+    dest: /etc/netplan/01-network-manager-all.yaml
+    mode: "0600"
+  register: netplan_renderer
+
+- name: Keep netplan files private (netplan warns about world-readable files)
+  ansible.builtin.shell: chmod 600 /etc/netplan/*.yaml
+  changed_when: false
+
+- name: Render the netplan configuration for NetworkManager (nothing applied yet)
+  ansible.builtin.command: netplan generate
+  changed_when: false
+  when: netplan_renderer.changed
+
+- name: Look for the Wi-Fi profile netplan rendered for NetworkManager
+  ansible.builtin.find:
+    paths: /run/NetworkManager/system-connections
+    patterns: "netplan-wl*"
+  register: nm_wifi_profiles
+  when: netplan_renderer.changed
+
+- name: Refuse to hand over a Wi-Fi-only host without a rendered Wi-Fi profile
+  ansible.builtin.assert:
+    that: nm_wifi_profiles.matched | default(0) > 0
+    fail_msg: >-
+      This host is reached over Wi-Fi and netplan rendered no Wi-Fi profile for NetworkManager;
+      applying would cut it off. Plug in Ethernet, or check the wifis section of /etc/netplan.
+    quiet: true
+  when:
+    - netplan_renderer.changed
+    - ansible_facts.default_ipv4.interface is defined
+    - ansible_facts.default_ipv4.interface is match('^wl')
+
+# netplan apply does not stop the wpa_supplicant units it created for networkd earlier
+# (netplan-wpa-<iface>.service keeps holding the interface), so they are stopped explicitly.
+- name: Hand the interfaces over to NetworkManager (detached; the SSH session will drop)
+  ansible.builtin.shell: >-
+    sleep 3 && netplan apply;
+    systemctl stop 'netplan-wpa-*.service' 2>/dev/null;
+    sleep 3 && systemctl restart NetworkManager
+  async: 120
+  poll: 0
+  when: netplan_renderer.changed
+
+- name: Wait for the host to come back
+  ansible.builtin.wait_for_connection:
+    delay: 20
+    timeout: 300
+  when: netplan_renderer.changed
+
+- name: Enable NetworkManager and avahi at boot
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - NetworkManager
+    - avahi-daemon
+
+- name: Read what NetworkManager manages
+  ansible.builtin.command: nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status
+  register: nm_devices
+  changed_when: false
+
+- name: Report
+  ansible.builtin.debug:
+    var: nm_devices.stdout_lines
+
+- name: Check that NetworkManager has at least one connected interface
+  ansible.builtin.assert:
+    that: nm_devices.stdout_lines | select('search', ':connected') | reject('search', '^lo:') | list | length > 0
+    fail_msg: >-
+      NetworkManager manages no connected interface after the handover (see the report above).
+      Restart NetworkManager or reboot the robot, then re-run.
+    quiet: true
