@@ -28,7 +28,7 @@ then the one-shot service `bootstrap`, which waits for the API and creates or up
 | Repository | robotont-management | local path `/repositories/robotont-management` (this working tree, bind-mounted, submodules included), branch `main` |
 | Inventory | robots | type File, the directory `inventory/` (groups, one file per enrolled robot, group_vars), user credentials `peko-ssh`, sudo credentials `peko-sudo` |
 | Environment | robotont-secrets | extra variables `wifi_pass`, `wifi_hotspot_password`, `wifi_client_ssid`, `wifi_client_password` (those set in `.env`) |
-| Templates | the three tasks below | from `server/templates.json`; templates not listed there are removed |
+| Templates | the four tasks below | from `server/templates.json`; templates not listed there are removed |
 
 Re-run `docker compose -f server/compose.yaml up -d` after editing `.env` or `templates.json`:
 the bootstrap is idempotent and updates in place (`docker logs robotont-semaphore-bootstrap`).
@@ -40,9 +40,10 @@ is no Limit, tag or CLI argument field.
 
 | Task | Dialog fields | What it does | Time |
 |---|---|---|---|
-| 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover); writes `inventory/robots/robotont-N.yaml` | seconds to 2 min |
+| 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); writes `inventory/robots/robotont-N.yaml` | seconds; about 3 min on a fresh Lite robot |
 | 2. Setup ROS | Robot number | the upstream robotont-setup playbook, unchanged: apt upgrade, ROS 2 Jazzy, workspace build, hostname, Wi-Fi hotspot, `robotont.service`, reboot | 20 to 60 min |
-| 3. Switch preset | Robot number, Preset | container runtime ([07](07-container-runtime.md)): activates a preset on one robot. Needs `playbooks/setup_docker.yml` on that robot first; it becomes task 3 and this one task 4 once hardware-tested | 1 min |
+| 3. Setup Docker | Robot number | container runtime ([07](07-container-runtime.md)): Docker Engine, `/opt/robotont`, `robotont.service` replacing the upstream unit, metrics timer, and the image build on the robot when it is missing; keeps preset `host` | 5 min, plus 15 to 40 min for the first image build; robot on the internet |
+| 4. Switch preset | Robot number, Preset | activates a preset on one robot: host, driver, test-talker, demo-example | 1 min |
 
 Fields:
 

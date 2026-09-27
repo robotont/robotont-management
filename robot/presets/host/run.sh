@@ -2,7 +2,8 @@
 # Preset "host": the host-installed ROS 2 workspace, no containers. Migration bridge that keeps a
 # robot provisioned by robotont-setup running as before, without the `bash -ic` dependency.
 # Environment comes from /etc/robotont/robotont.env through robotont.service.
-set -euo pipefail
+# No -u: the ROS setup scripts reference variables that may be unset (AMENT_TRACE_SETUP_FILES).
+set -eo pipefail
 # shellcheck disable=SC1090
 source "/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
 WS="${ROBOTONT_HOST_WS:-$HOME/ros2_ws}"

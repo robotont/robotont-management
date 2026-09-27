@@ -38,4 +38,4 @@ robotont-status                  # report from robotont-metrics (also inside con
 journalctl -u robotont -f        # logs of the active preset
 ```
 
-From Semaphore: task "3. Switch preset" with the dialog fields Robot number and Preset.
+From Semaphore: task "4. Switch preset" with the dialog fields Robot number and Preset.

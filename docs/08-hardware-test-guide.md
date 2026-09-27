@@ -11,7 +11,7 @@ and where to look when it fails. Record results in the test logs at the end of d
    clone from GitHub (pushing is a network action from your machine).
 2. Start Semaphore per [semaphore-setup.md](semaphore-setup.md): fill in `server/.env`, then
    `docker compose -f server/compose.yaml up -d`. The project, keys, repository, inventory,
-   environment and the three tasks are created automatically. No robot is needed for this part.
+   environment and the four tasks are created automatically. No robot is needed for this part.
 3. Make sure the private key named in `server/.env` opens the robots. If it does not, you will
    run `ssh-copy-id` at the robot (A1).
 4. Bring an Ethernet cable. "2. Setup ROS" switches the robot's Wi-Fi into hotspot mode and cuts
@@ -22,8 +22,8 @@ and where to look when it fails. Record results in the test logs at the end of d
 Write the card with Raspberry Pi Imager: Ubuntu Server 24.04 LTS (64-bit), OS customisation
 with hostname `robotont-<id>`, user `peko`, the lab Wi-Fi, SSH enabled with your public key. Boot,
 find the address (`robotont-<id>.local`, or the IP in the router). Nothing else is done by hand:
-"1. Setup Ubuntu" installs NetworkManager and BlueZ and completes the network handover (role
-`robotont_headless`), "2. Setup ROS" runs the upstream playbook. Camera = no unless the IMX500
+"1. Setup Ubuntu" installs NetworkManager and BlueZ, completes the network handover and reboots
+once (role `robotont_headless`), "2. Setup ROS" runs the upstream playbook. Camera = no unless the IMX500
 camera is fitted. Run over Ethernet.
 
 ## What you need at the robot
@@ -54,18 +54,17 @@ Milestone reached after A5: a robot is set up from Semaphore with four dialog fi
 
 Prerequisite: Part A green on this robot, so it is in the adopted state (host ROS working). The
 robot needs internet for B1 (Docker packages, base image, apt, GitHub), so Ethernet or the client
-Wi-Fi profile. `setup_docker.yml` runs from the command line until this part has passed; then it
-becomes Semaphore task "3. Setup Docker".
+Wi-Fi profile. B1 is Semaphore task "3. Setup Docker"; the rows give the command-line form too.
 
 | Step | Command (where) | Expected | If not |
 |---|---|---|---|
-| B1 Deploy the runtime | `ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=N` (15 to 30 min: the image build) | Docker installed, `docker image ls ghcr.io/robotont/robotont-ros` shows tag `2026.09`; `status.yml` green with the runtime line `container runtime, preset host`. On the robot: `robotont-status` prints `preset: host`, `service: active`, `containers: none`; `systemctl cat robotont.service` shows the new unit from `/etc/systemd/system`; `journalctl -u robotont -n 30` shows the bringup started by `run.sh`; `ls /lib/systemd/system/robotont.service` says no such file; `docker ps` is empty; `cat /var/lib/prometheus/node-exporter/robotont.prom` shows `robotont_preset_info{preset="host",...} 1` | Docker apt repo: robot needs internet; `robotont.service` failed: `journalctl -u robotont -n 100`, most likely the workspace path in `ROBOTONT_HOST_WS` |
-| B2 First container, no hardware | Semaphore "3. Switch preset": Robot number N, Preset test-talker (or `ansible-playbook playbooks/switch_preset.yml -K -e robotont_id=N -e preset=test-talker`) | on the robot `docker ps` shows `robotont-talker` running; `source /opt/ros/jazzy/setup.bash; export ROS_DOMAIN_ID=N; ros2 topic echo /chatter` prints `hello from robotont-N` (container to host DDS over host networking); `journalctl -u robotont -f` shows the talker's output; `robotont-preset status` lists the container; `status.yml` green with `containers_running: 1/1`. The mainboard is idle in this preset, by design | image pull failed: robot has no internet; `sudo: a password is required`: `sudo visudo -cf /etc/sudoers.d/robotont-preset` |
+| B1 Deploy the runtime | Semaphore "3. Setup Docker": Robot number N (or `ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=N`); 15 to 40 min for the image build | Docker installed, `docker image ls ghcr.io/robotont/robotont-ros` shows the release tag (`2026.09`, Lite robots `2026.09-lite`); `status.yml` green with the runtime line `container runtime, preset host`. On the robot: `robotont-status` prints `preset: host`, `service: active`, `containers: none`; `systemctl cat robotont.service` shows the new unit from `/etc/systemd/system`; `journalctl -u robotont -n 30` shows the bringup started by `run.sh`; `ls /lib/systemd/system/robotont.service` says no such file; `docker ps` is empty; `cat /var/lib/prometheus/node-exporter/robotont.prom` shows `robotont_preset_info{preset="host",...} 1` | Docker apt repo: robot needs internet; `robotont.service` failed: `journalctl -u robotont -n 100`, most likely the workspace path in `ROBOTONT_HOST_WS` |
+| B2 First container, no hardware | Semaphore "4. Switch preset": Robot number N, Preset test-talker (or `ansible-playbook playbooks/switch_preset.yml -K -e robotont_id=N -e preset=test-talker`) | on the robot `docker ps` shows `robotont-talker` running; `source /opt/ros/jazzy/setup.bash; export ROS_DOMAIN_ID=N; ros2 topic echo /chatter` prints `hello from robotont-N` (container to host DDS over host networking); `journalctl -u robotont -f` shows the talker's output; `robotont-preset status` lists the container; `status.yml` green with `containers_running: 1/1`. The mainboard is idle in this preset, by design | image pull failed: robot has no internet; `sudo: a password is required`: `sudo visudo -cf /etc/sudoers.d/robotont-preset` |
 | B3 Rebuild the image (only after changing the release) | `ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=N -e rebuild=true` | the image id changes | run the build by hand to see the error: `docker compose --env-file /etc/robotont/robotont.env -f /opt/robotont/images/compose.build.yaml build robotont-ros` |
-| B4 Containerised bringup | "3. Switch preset": N, driver | `docker ps` shows `robotont-driver`; `docker exec robotont-driver ls -l /dev/robotont /dev/ttyACM0` lists both; `ros2 topic hz /odom` on the robot shows a steady rate; `ros2 topic echo --once /battery_state` has a voltage; gamepad drives the robot; `status.yml` green | `Permission denied` on the device: `ls -l /dev/robotont` must be mode 0666 (udev rule) and `ls -l /dev/ttyACM0` major 166; no `/odom`: `docker logs robotont-driver` |
+| B4 Containerised bringup | "4. Switch preset": N, driver | `docker ps` shows `robotont-driver`; `docker exec robotont-driver ls -l /dev/robotont /dev/ttyACM0` lists both; `ros2 topic hz /odom` on the robot shows a steady rate; `ros2 topic echo --once /battery_state` has a voltage; gamepad drives the robot; `status.yml` green | `Permission denied` on the device: `ls -l /dev/robotont` must be mode 0666 (udev rule) and `ls -l /dev/ttyACM0` major 166; no `/odom`: `docker logs robotont-driver` |
 | B5 Replug test | unplug the mainboard USB cable for 5 s, plug it back (robot) | `/odom` resumes within about 10 s; `docker inspect -f '{{.RestartCount}}' robotont-driver` stays `0`; `grep device_present /var/lib/prometheus/node-exporter/robotont.prom` goes 0 then 1 | if the driver never recovers: note it; the documented fallback is `devices:` mapping plus a restart |
 | B6 Survives a reboot | `sudo reboot` (robot) | after boot `robotont-status` shows preset `driver`, container running, `/odom` publishing | `systemctl status docker robotont`; `journalctl -b -u robotont` |
-| B7 Rollback | "3. Switch preset": N, host | `docker ps` empty, host bringup running again, `status.yml` green | `journalctl -u robotont -n 50` |
+| B7 Rollback | "4. Switch preset": N, host | `docker ps` empty, host bringup running again, `status.yml` green | `journalctl -u robotont -n 50` |
 | B8 Soak | leave the robot on `driver` for a week of normal use | `systemctl show robotont -p NRestarts` low, `docker inspect -f '{{.RestartCount}}' robotont-driver` low, no complaints from students | collect the journal and open an issue |
 
 Write date, robot, image id (`docker image inspect -f '{{.Id}}' ghcr.io/robotont/robotont-ros:2026.09`)
@@ -85,7 +84,14 @@ and results into the test log of docs/07.
    from systemd-networkd, so `eth0` came back with another lease and a `wait_for_connection` on
    the pinned address never returned. Always address robots by `robotont-N.local` (avahi is now
    part of the role) or by a DHCP reservation on the router; never pass `-e ansible_host=<ip>`
-   for a first Provision.
+   for a first setup.
+   **Second finding, 2026-09-27:** the old networkd addresses stay configured next to
+   NetworkManager's until their lease expires (about ten minutes later) and avahi announces both;
+   an SSH session that landed on an old one was cut in the middle of "2. Setup ROS" and the task
+   reported the robot unreachable. The role now reboots right after the handover, so NetworkManager
+   owns the interfaces from boot and only its addresses exist. Ansible also retries dropped
+   connections (`retries = 5` in `ansible.cfg`) and uses IPv4 only (`-4`), because mDNS also hands
+   the container an unusable IPv6 link-local address first.
 3. **Unplugging Ethernet during the run** aborts it at the wait step. If a run is aborted after
    the handover: reboot the robot (NetworkManager owns everything from the next boot), check
    `nmcli device status`, then re-run "1. Setup Ubuntu"; the role's file tasks report `ok` and
@@ -119,6 +125,7 @@ and results into the test log of docs/07.
 | `status.yml`: `mainboard_present: false` | `lsusb | grep 0483:5740`, `ls -l /dev/ttyACM* /dev/robotont`, `cat /etc/udev/rules.d/99-robotont.rules`, `sudo udevadm trigger` | USB cable, mainboard power, missing udev rule |
 | Service active but no `/odom` | `journalctl -u robotont -n 100` | wrong `ROS_DOMAIN_ID` in your shell (must equal the robot number); driver on `/dev/ttyACM0` while the board enumerated as `ttyACM1` |
 | "2. Setup ROS" seems stuck at the end | Semaphore task log | the reboot: wait 3 minutes, then `status.yml` |
+| `permission denied ... docker.sock` right after `setup_docker.yml` | your shell on the robot | the login predates the docker group: log out and in again (the playbook resets its own connection) |
 | Session lost during "2. Setup ROS" | Wi-Fi | `netplan apply` switched to hotspot mode; use Ethernet |
 | compose prints "variable is not set" | `cat /etc/robotont/robotont.env` | env file incomplete or unreadable by peko (must be group `peko`, mode 0640) |
 | `robotont-preset switch`: "sudo: a password is required" | `sudo visudo -cf /etc/sudoers.d/robotont-preset` | sudoers file missing or the systemctl path differs |

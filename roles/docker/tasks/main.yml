@@ -51,3 +51,9 @@
     groups: docker
     append: true
   loop: "{{ docker_users }}"
+  register: docker_group
+
+# The SSH session that Ansible keeps open still carries the old group list; a new login has the
+# new one. Without this, a build in the same run gets "permission denied" on the Docker socket.
+- name: Reset the SSH connection so the new group membership applies
+  ansible.builtin.meta: reset_connection

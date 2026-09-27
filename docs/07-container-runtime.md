@@ -33,7 +33,7 @@ the design plus the D1 files, verified statically.
   removes the previous preset's containers, and fixed container names (`robotont-driver`) make two
   drivers impossible. A preset may contain several containers.
 - **Switching** is `robotont-preset switch <name>`: validate, write the word, restart the unit.
-  Semaphore runs it through `playbooks/switch_preset.yml` (task "3. Switch preset": Robot number, Preset).
+  Semaphore runs it through `playbooks/switch_preset.yml` (task "4. Switch preset": Robot number, Preset).
   Deploys never reset the preset; it is operational state, written only on the first deploy
   (`robotont_default_preset: host`).
 - **Restarts.** Containers use `restart: unless-stopped`, so a crashing driver is back in seconds
@@ -42,8 +42,12 @@ the design plus the D1 files, verified statically.
 - **Devices.** Hardware containers bind-mount `/dev` read-only and get narrow `device_cgroup_rules`
   (ttyACM, ttyUSB, input, USB bus, video4linux). The host udev symlinks are therefore visible and a
   replugged mainboard is picked up without a container restart. No `privileged`.
-- **Networking.** `network_mode: host` and `ipc: host` on every ROS container: DDS discovery with
-  laptops works as before; `ROS_DOMAIN_ID` comes from the env file, not from `.bashrc`.
+- **Networking.** `network_mode: host` on every ROS container: DDS discovery with laptops works as
+  before, and `ROS_DOMAIN_ID` comes from the env file. Transport is UDP only
+  (`FASTDDS_BUILTIN_TRANSPORTS=UDPv4` in every container): Fast DDS shared memory does not work
+  between the containers' root and the host's peko even with `ipc: host` (discovery succeeds, data
+  never arrives; found on robotont-123, test log). `ipc: host` stays for anything else that needs
+  `/dev/shm`.
 - **Device declarations.** Each service labels the hardware it opens (`robotont.devices`, vocabulary
   `mainboard lidar gamepad realsense camera`). `robotont-preset check` refuses two claims on an
   exclusive device; `robotont-metrics` turns claims into metrics.
@@ -59,8 +63,8 @@ the design plus the D1 files, verified statically.
 | `robot/bin/robotont-preset`, `robotont-metrics`, `robotont-status` | `/usr/local/bin/` | switch and run, metrics and status |
 | `roles/docker` | | Docker Engine and Compose plugin from Docker's apt repository, `daemon.json` (journald logging, live-restore, metrics on 127.0.0.1:9323), `peko` in group `docker` |
 | `roles/robotont_presets` | `/etc/robotont/`, `/etc/systemd/system/robotont.service`, `/etc/sudoers.d/robotont-preset`, metrics timer | the runtime itself |
-| `playbooks/setup_docker.yml` | | Docker, presets, unit, then the image build when it is missing; command line until hardware-tested, then Semaphore "3. Setup Docker" |
-| `playbooks/switch_preset.yml` | | Semaphore "3. Switch preset" (Robot number, Preset) |
+| `playbooks/setup_docker.yml` | | Semaphore "3. Setup Docker": Docker, presets, unit, then the image build when it is missing |
+| `playbooks/switch_preset.yml` | | Semaphore "4. Switch preset" (Robot number, Preset) |
 | `playbooks/status.yml` | | read-only report, preset-aware: containers, declared devices |
 
 ## Images
@@ -120,9 +124,9 @@ recreates containers whose image changed).
 
 ## Semaphore tasks
 
-"3. Switch preset" exists today (Robot number, Preset). `setup_docker.yml` becomes "3. Setup
-Docker" (Robot number) once Part B of [08](08-hardware-test-guide.md) has passed, and Switch
-preset moves to 4. Both run on exactly one robot; there is no fleet-wide switch.
+"3. Setup Docker" (Robot number) deploys the runtime and builds the image; "4. Switch preset"
+(Robot number, Preset) activates a preset. Both run on exactly one robot; there is no fleet-wide
+switch. `-e rebuild=true` on the command line forces the image build for an unchanged tag.
 
 ## Monitoring hooks
 
@@ -188,3 +192,10 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part B.
 | Date | Where | What | Result |
 |---|---|---|---|
 | 2026-09-23 | Mac | compose config of every preset, `robotont-preset check`, `robotont-metrics --print`, Ansible syntax checks | see the verification notes in the commit |
+| 2026-09-27 | robotont-123 (Pi 5, Lite, no mainboard) | B1 `setup_docker.yml -e robotont_id=123` from the Mac | Docker 29 installed, `/opt/robotont` deployed, unit swapped, preset `host`, metrics timer running. Three defects found and fixed in the same session: (1) `presets/host/run.sh` used `set -u` and `/opt/ros/jazzy/setup.bash` references an unset variable, so the service restart-looped until the script was fixed (now `set -eo pipefail`); after the fix the host bringup runs through the new unit with the inventory's arguments (`camera:=false`); (2) the image build in the same run got "permission denied" on the Docker socket because the SSH session predated peko's docker group: the docker role now resets the connection and the build runs as the login user; (3) `robotont-metrics` reported `camera=yes` from `/dev/media*`, which the Pi's codec and ISP expose without a camera; detection now uses the CSI video nodes. Image build re-run: see next row |
+| 2026-09-27 | robotont-123 | B1 re-run after the fixes | **green**: `ghcr.io/robotont/robotont-ros:2026.09-lite` built on the Pi in 14 min (rosdep and colcon of the Lite release); a further re-run is idempotent (`already present`, only the presets copy changes) |
+| 2026-09-27 | robotont-123 | B2 "Switch preset" test-talker from Semaphore | container up in 10 s, `/chatter` discovered on the host, but **no data arrived**: Fast DDS shared memory between root (container) and peko (host) does not work even with `ipc: host` (inside the container the echo works; a UDP-only host subscriber receives). Fix: `FASTDDS_BUILTIN_TRANSPORTS=UDPv4` in every container. After redeploy and re-switch a plain `ros2 topic echo --once /chatter` on the host prints the message; `status.yml` green with `containers_running: 1/1`; metrics `robotont_container_state{service="talker",state="running"} 1` |
+| 2026-09-27 | robotont-123 (no mainboard, no lidar) | B4 "Switch preset" driver | `robotont-driver` running from the built image: driver, teleop, laserscan_to_ranges and robot_state_publisher up, 17 `/rt123/...` topics on the host; the driver retries `/dev/ttyACM0` once per second and the rplidar node dies (no `/dev/lidar`), as on the host; metrics show the three claimed devices absent. Odometry and driving wait for the mainboard |
+| 2026-09-27 | robotont-123 | B6 reboot, B7 rollback | after the reboot preset `driver` persisted, container up 24 s after login, `NRestarts=0`, 14 topics; "Switch preset" host from Semaphore: no containers, host bringup through `run.sh` running, 15 topics |
+| 2026-09-27 | robotont-123, **fresh card**, mainboard and lidar fitted, user-driven from the Semaphore UI | "3. Setup Docker" (task 33) | first attempt red in the build step: the ISP path to `packages.ros.org` and `auth.docker.io` was down from the robot for a while (TCP timeouts from both interfaces, LAN clean); the runtime part had completed (new unit, preset host, camera respawn gone). Build step now retries three times. Second run **green** in 19 min including the image build |
+| 2026-09-27 | robotont-123, fresh card | "4. Switch preset" driver (task 34) | **green**: `robotont-driver` from `robotont-ros:2026.09-lite` (4.5 GB), `/dev/robotont` and `/dev/lidar` visible inside, RPLidar identified, driver opens the mainboard; `status.yml` green with `containers_running: 1/1`; metrics show both devices present and the container running with 0 restarts; a `/rt123/scan` message reaches a host subscriber |

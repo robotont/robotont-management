@@ -1,10 +1,8 @@
 ---
-# Setup Docker (container runtime, docs/07): Docker Engine, /opt/robotont (presets, image
+# 3. Setup Docker (container runtime, docs/07): Docker Engine, /opt/robotont (presets, image
 # definitions, release files), /etc/robotont, robotont.service replacing the robotont-setup unit,
 # the metrics timer, and the robotont-ros image built on the robot when it is missing.
 # The first run keeps preset "host": nothing changes in behaviour until "4. Switch preset".
-# Not yet a Semaphore task: it becomes "3. Setup Docker" (Switch preset then "4.") once docs/08
-# Part B has passed on hardware.
 #
 #   Input: robotont_id (Robot number) of an enrolled robot.  -e rebuild=true forces the image build.
 #   CLI:   ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=123
@@ -32,11 +30,12 @@
     - docker
     - robotont_presets
 
+# Runs as the login user (peko, in group docker): no sudo, so the image is built the way an
+# operator would build it by hand.
 - name: Build the robotont-ros image on the robot
   hosts: robots
-  become: true
-  become_user: "{{ robotont_user }}"
   vars:
+    ansible_become: false
     rebuild: false
     build_timeout: 3600
     robotont_ros_image: "{{ robotont_image_repo }}/robotont-ros:{{ robotont_release }}"
@@ -47,12 +46,18 @@
       changed_when: false
       failed_when: false
 
+    # Registry and package mirrors fail transiently (TLS handshake timeouts seen on 2026-09-27);
+    # a retry resumes from Docker's build cache, so only the failed step is repeated.
     - name: Build robotont-ros (15 to 30 minutes on a NUC, longer on a Pi; needs internet on the robot)
       ansible.builtin.command: >-
         docker compose --env-file /etc/robotont/robotont.env
         -f /opt/robotont/images/compose.build.yaml build robotont-ros
       async: "{{ build_timeout }}"
       poll: 30
+      register: image_build
+      until: image_build.rc == 0
+      retries: 3
+      delay: 30
       when: image_before.rc != 0 or rebuild | bool
 
     - name: Show the runtime status

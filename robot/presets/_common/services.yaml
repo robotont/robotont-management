@@ -7,12 +7,16 @@ services:
   # Anything that speaks ROS 2 on this robot.
   ros-app:
     network_mode: host          # DDS multicast discovery with laptops; "ports:" is ignored in this mode
-    ipc: host                   # Fast DDS shared-memory transport between containers and host processes
+    ipc: host                   # shared /dev/shm; not enough for Fast DDS shared memory, see below
     init: true                  # tini reaps the children of ros2 launch
     restart: unless-stopped     # Docker restarts a crashed container; systemd owns the compose process
     stop_grace_period: 10s
     environment:
       ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
+      # Containers run as root, host processes as peko: Fast DDS shared-memory segments of one are
+      # not readable by the other, so discovery works but data never arrives. UDP only, both ways.
+      # Verified on robotont-123 (2026-09-27, docs/07 test log).
+      FASTDDS_BUILTIN_TRANSPORTS: UDPv4
       ROBOTONT_ID: "${ROBOTONT_ID}"
       ROBOTONT_GENERATION: "${ROBOTONT_GENERATION}"
       ROBOTONT_RELEASE: "${ROBOTONT_RELEASE}"

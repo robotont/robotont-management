@@ -120,6 +120,16 @@
     timeout: 300
   when: netplan_renderer.changed
 
+# The systemd-networkd addresses and leases survive the handover next to NetworkManager's and
+# expire minutes later; avahi announces both, and an SSH session on an old one dies mid-task
+# (seen during "2. Setup ROS" on 2026-09-27). A reboot leaves NetworkManager as the only owner.
+- name: Reboot so that NetworkManager owns the interfaces from boot (no stale addresses)
+  ansible.builtin.reboot:
+    reboot_timeout: 600
+    post_reboot_delay: 20
+    msg: "Reboot after the network handover (robotont-management)"
+  when: netplan_renderer.changed
+
 - name: Enable NetworkManager and avahi at boot
   ansible.builtin.systemd_service:
     name: "{{ item }}"

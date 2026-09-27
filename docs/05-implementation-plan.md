@@ -6,8 +6,8 @@
 > the roadmap in 06, and `group_vars/robotonts.yml` is `group_vars/robots.yml` (the upstream
 > group name).
 >
-> **Update 2026-09-26.** Semaphore carries three numbered tasks only (1. Setup Ubuntu, 2. Setup
-> ROS, 3. Switch preset; [semaphore-setup.md](semaphore-setup.md)); status and health are left
+> **Update 2026-09-26.** Semaphore carries four numbered tasks only (1. Setup Ubuntu, 2. Setup
+> ROS, 3. Setup Docker, 4. Switch preset; [semaphore-setup.md](semaphore-setup.md)); status and health are left
 > to Prometheus and Grafana (Milestone 3). The inventory is the directory `inventory/` with
 > `groups.yaml`, `group_vars/all.yml` and one file per enrolled robot under `robots/`, written by
 > "1. Setup Ubuntu". Template and playbook names in this document are the original plan.

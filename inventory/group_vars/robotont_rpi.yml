@@ -19,7 +19,9 @@ robotont_password: ""            # only used when the user does not exist yet (o
 #   wifi_client_ssid         lab Wi-Fi the robot joins when it is in range
 #   wifi_client_password
 
-# Container runtime defaults for Lite robots (docs/07).
+# Container runtime defaults for Lite robots (docs/07). The Lite release file pins the packages a
+# Lite robot runs (robot/releases/2026.09-lite.repos); it is also the image tag.
+robotont_release: "2026.09-lite"
 robotont_lidar: true
 robotont_camera: false           # true only with the IMX500 camera fitted (needs the custom kernel)
 robotont_realsense: false

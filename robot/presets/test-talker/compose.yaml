@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     environment:
       ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
+      FASTDDS_BUILTIN_TRANSPORTS: UDPv4     # see _common/services.yaml
     command:
       - ros2
       - topic

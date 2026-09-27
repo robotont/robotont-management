@@ -17,8 +17,13 @@
    "survey_vars": [
      {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true,
       "description": "a robot enrolled by 1. Setup Ubuntu"}]},
-  {"name": "3. Switch preset", "playbook": "playbooks/switch_preset.yml",
-   "description": "Container runtime (docs/07): activate a preset on one robot. Needs playbooks/setup_docker.yml on that robot first.",
+  {"name": "3. Setup Docker", "playbook": "playbooks/setup_docker.yml",
+   "description": "Container runtime (docs/07): Docker Engine, /opt/robotont, robotont.service, metrics timer, and the image build on the robot when it is missing. Keeps preset host. 5 min, plus 15 to 40 min for the first image build; the robot needs internet.",
+   "survey_vars": [
+     {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true,
+      "description": "a robot set up by 2. Setup ROS"}]},
+  {"name": "4. Switch preset", "playbook": "playbooks/switch_preset.yml",
+   "description": "Container runtime (docs/07): activate a preset on one robot. Needs 3. Setup Docker on that robot first.",
    "survey_vars": [
      {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true},
      {"name": "preset", "title": "Preset", "type": "enum", "required": true,

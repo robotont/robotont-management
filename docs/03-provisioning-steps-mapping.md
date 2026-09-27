@@ -5,7 +5,7 @@ installation, creating the first user in the installer and plugging in the netwo
 (context document, section 13).
 
 > **Update 2026-09-26.** The Semaphore tasks named below are the original plan. The current
-> tasks are 1. Setup Ubuntu, 2. Setup ROS and 3. Switch preset ([semaphore-setup.md](semaphore-setup.md));
+> tasks are 1. Setup Ubuntu, 2. Setup ROS, 3. Setup Docker and 4. Switch preset ([semaphore-setup.md](semaphore-setup.md));
 > the read-only report is `playbooks/status.yml` on the command line until Grafana exists.
 
 ## 1. Steps a maintainer performs today

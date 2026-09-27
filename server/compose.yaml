@@ -34,10 +34,9 @@ services:
       # Local repository (docs/semaphore-setup.md): this working tree, including the submodules,
       # is used directly. Remove the line when Semaphore clones from GitHub instead.
       - ..:/repositories/robotont-management
-    extra_hosts:
-      # mDNS does not resolve inside the container; map the robots' .local names to their addresses
-      # (or use DHCP reservations and addresses in the inventory).
-      - "robotont-123.local:192.168.88.68"
+    # Robot names: the container's resolver forwards to the Docker host's resolver. On Docker
+    # Desktop (macOS) that resolves .local names through mDNS, so no mapping is needed. On a
+    # Linux server without mDNS, add extra_hosts here or use DHCP reservations and DNS.
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/ping"]
       interval: 5s

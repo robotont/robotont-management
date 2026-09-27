@@ -39,7 +39,9 @@ DEVICES = {
     "lidar": lambda: os.path.exists("/dev/lidar"),
     "gamepad": lambda: bool(glob.glob("/dev/input/js*")),
     "realsense": realsense_present,
-    "camera": lambda: bool(glob.glob("/dev/media*")),
+    # CSI camera (IMX500 on Lite robots): the rp1-cfe video nodes exist only with a sensor attached.
+    # /dev/media* and /dev/video* alone are not enough: the Pi's codec and ISP expose them always.
+    "camera": lambda: bool(glob.glob("/dev/v4l/by-path/platform-*csi*")),
 }
 
 

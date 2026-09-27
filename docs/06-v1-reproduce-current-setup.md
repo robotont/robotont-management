@@ -32,8 +32,8 @@ robotont-management/
 ├── playbooks/
 │   ├── setup_ubuntu.yml            1. SSH and sudo check, Ubuntu Server prerequisites, enrolment
 │   ├── setup_ros.yml               2. preflight, patches, then the upstream robots.yaml
-│   ├── switch_preset.yml           3. container runtime (docs/07)
-│   ├── setup_docker.yml            container runtime deploy and image build (command line until tested)
+│   ├── setup_docker.yml            3. container runtime: Docker, presets, unit, image build (docs/07)
+│   ├── switch_preset.yml           4. activate a preset (docs/07)
 │   └── status.yml                  read-only report of every enrolled robot (command line, until Grafana)
 ├── roles/robotont_headless/        Ubuntu Server prerequisites for Lite robots
 ├── server/
@@ -90,8 +90,9 @@ Two things differ from a robot installed from the Ubuntu Desktop image:
 
 - The Pi under test runs **Ubuntu Server** (no desktop). The role `robotont_headless` installs
   NetworkManager and BlueZ and lets NetworkManager manage every interface (netplan renderer,
-  cloud-init network config disabled), which is what the upstream Wi-Fi setup needs. It is a
-  no-op on a Desktop install; set `robotont_headless: false` to skip it.
+  cloud-init network config disabled), which is what the upstream Wi-Fi setup needs, and reboots
+  once after the handover so that no systemd-networkd address survives it. It is a no-op on a
+  Desktop install; set `robotont_headless: false` to skip it.
 - The upstream task that disables desktop services (cups, whoopsie, speech-dispatcher,
   accounts-daemon) fails on Server because the units do not exist. The first patch in
   `patches/robotont-setup-rpi/` makes it tolerate missing units; the second skips the IMX500
@@ -127,7 +128,7 @@ ansible-playbook playbooks/status.yml -K        # read-only report of every enro
 ## Running from Semaphore
 
 See [semaphore-setup.md](semaphore-setup.md): `docker compose -f server/compose.yaml up -d` creates
-the project, keys, repository, inventory, environment and the three tasks from `server/.env`. Run
+the project, keys, repository, inventory, environment and the four tasks from `server/.env`. Run
 "1. Setup Ubuntu", then "2. Setup ROS".
 
 ## Selecting robots and the generation
@@ -179,3 +180,6 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part A.
 | 2026-09-26 | robotont-123 | provision.yml `--skip-tags camera` (re-run) | **green**: ok=68 changed=35 failed=0 in 18 min 41 s, reboot included. Afterwards: `robotont.service` active (NRestarts 0), hostname `robotont-123`, ROS graph on domain 123 with namespace `rt123` (`odom`, `battery_state`, `scan`, `joy`, `range_*`), udev rule in place, `peko` in dialout/input/video, `bluetoothctl` present, hotspot profile `robotont-123-hotspot` (priority -1) and client profile for the lab Wi-Fi (priority 100) active, 47 GB free. Health check green in report mode. Without hardware: driver retries `/dev/ttyACM0` once per second, `camera_node` respawns every 3 s ("no cameras available") because the upstream service template hard-codes `camera:=true`. Deployed commits captured in `robot/releases/2026.09-lite.repos` |
 | 2026-09-26 | robotont-123 | Semaphore UI (user): Test connection, Health Check | **red**: the CLI Args field takes one argument per entry, so `--limit robotont-123` became a single token and Ansible looked for a playbook of that name. Fix: the bootstrap now enables Semaphore's own Limit, Tags, Skip Tags and Debug fields on every template (`task_params`) and adds survey dropdowns (`healthcheck_strict`, `preset`); the inventory lists real robots only so Limit may stay empty. Re-verified through the API with Limit `robotont-123` (Test connection ok=7) and the survey answer no (Health Check ok=11, 3 skipped) |
 | 2026-09-26 | robotont-123 | Semaphore reduced to three dialog-driven tasks (user decision: simplicity, no status/restart/reboot tasks; Grafana later). `1. Setup Ubuntu` (address, number, type, camera), then `3. Switch preset` guard, then `2. Setup ROS` (number), all through the Semaphore API | **green**: Setup Ubuntu ok=16 (headless role no-op, enrolment file written from inside the container, proven by deleting and re-enrolling); Switch preset fails as intended with "no container runtime yet"; Setup ROS ok=53 changed=16 skipped=67 in 6 min (the run-time `robots` group held only robotont-123; camera tasks skipped by patch 0002 through `robotont_camera: false` instead of `--skip-tags`; reboot done). `status.yml` from the Mac afterwards: service active, hostname `robotont-123` |
+| 2026-09-27 | robotont-123, **fresh card**, mainboard and lidar fitted (user-driven, Semaphore UI, no static host mapping: the container resolves `.local` through the Docker host) | 1. Setup Ubuntu green; 2. Setup ROS | **red** at `Install ROS (jazzy-desktop)`: "Data could not be sent to remote host", although the package installed. Journal: the pre-handover networkd addresses (eth0 .71, wlan0 .70) expired at 13:13:44 next to NetworkManager's (.72, .73); the SSH session ran on an old one and timed out. Fixes: reboot after the handover in the headless role, `retries = 5` and `-4` in `ansible.cfg`. Re-run of 2. Setup ROS follows |
+| 2026-09-27 | robotont-123, fresh card, mainboard and lidar fitted (user-driven, Semaphore UI) | 2. Setup ROS re-run | **green** in 11 min. `status.yml` from the Mac: service active, `NRestarts=0`, hostname `robotont-123`, `mainboard_present: true`, 46 GB free, workspace = the Lite release commits. On the robot: `/dev/robotont -> ttyACM0`, `/dev/lidar -> ttyUSB0`, RPLidar identified (S/N, firmware 1.02), driver opens the mainboard ("Hardware interface is ready") but no `odom`, `battery_state` or `joint_states` topics: the mainboard sends nothing (battery not connected; firmware side, left out of this test by the user). Hotspot profile `robotont-123-hotspot` present. `camera_node` respawns every 3 s (upstream unit hard-codes `camera:=true`, docs/08 issue 5); gamepad not paired yet |
+| 2026-09-27 | robotont-123, fresh card | 3. Setup Docker, 4. Switch preset driver (user-driven) | green after a transient ISP outage; details in the docs/07 test log |

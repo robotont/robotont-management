@@ -1,5 +1,5 @@
 ---
-# 3. Switch preset: activate a preset on ONE robot with the container runtime (docs/07).
+# 4. Switch preset: activate a preset on ONE robot with the container runtime (docs/07).
 #   Inputs: robotont_id (Robot number), preset (host | driver | test-talker | demo-example ...)
 #   CLI:    ansible-playbook playbooks/switch_preset.yml -K -e robotont_id=123 -e preset=driver
 - name: Select the robot
