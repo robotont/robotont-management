@@ -1,0 +1,8 @@
+# Managed by Ansible (roles/robotont_workspaces).
+[Unit]
+Description=Robotont runtime metrics (node_exporter textfile and /run/robotont/status.json)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/robotont-metrics

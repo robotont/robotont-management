@@ -1,0 +1,23 @@
+# Managed by Ansible (roles/robotont_host). Lab Wi-Fi, preferred over the hotspot when in range.
+[connection]
+id={{ robotont_client_ssid }}
+type=wifi
+interface-name={{ robotont_wifi_interface }}
+autoconnect=true
+autoconnect-priority=100
+
+[wifi]
+ssid={{ robotont_client_ssid }}
+mode=infrastructure
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk={{ robotont_client_password }}
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=disabled
+
+[proxy]

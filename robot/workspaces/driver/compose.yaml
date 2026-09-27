@@ -1,0 +1,7 @@
+# Workspace "driver": the standard bringup and nothing else. The production default once the
+# container runtime is live on a robot.
+services:
+  driver:
+    extends:
+      file: ../_common/services.yaml
+      service: driver

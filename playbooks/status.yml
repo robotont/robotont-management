@@ -2,7 +2,7 @@
 # Status: command-line check, not a Semaphore task (Grafana takes this role later; docs/05).
 # Read-only, every enrolled robot, no inputs. Reports reachability, sudo, robotont.service,
 # mainboard, hostname, uptime, disk, deployed workspace commits and (container runtime) the active
-# preset and its containers. Red only when a robot is unreachable, sudo fails, a submodule is
+# workspace and its containers. Red only when a robot is unreachable, sudo fails, a submodule is
 # missing, or robotont.service is not active; a missing mainboard is reported, not failed.
 #
 # CLI: ansible-playbook playbooks/status.yml -K
@@ -50,20 +50,20 @@
       changed_when: false
       failed_when: false
 
-    - name: Read the active preset (container runtime; absent on robots without it)
+    - name: Read the active workspace (container runtime; absent on robots without it)
       ansible.builtin.slurp:
-        src: /etc/robotont/preset
-      register: preset_file
+        src: /etc/robotont/workspace
+      register: workspace_file
       failed_when: false
 
     - name: Determine the runtime mode
       ansible.builtin.set_fact:
-        robotont_runtime_deployed: "{{ preset_file.content is defined }}"
-        robotont_preset_active: "{{ (preset_file.content | b64decode | trim) if preset_file.content is defined else 'host' }}"
+        robotont_runtime_deployed: "{{ workspace_file.content is defined }}"
+        robotont_workspace_active: "{{ (workspace_file.content | b64decode | trim) if workspace_file.content is defined else 'host' }}"
 
     - name: Determine whether containers are expected
       ansible.builtin.set_fact:
-        robotont_containers_expected: "{{ robotont_runtime_deployed | bool and robotont_preset_active != 'host' }}"
+        robotont_containers_expected: "{{ robotont_runtime_deployed | bool and robotont_workspace_active != 'host' }}"
 
     - name: Check that the mainboard is enumerated as /dev/robotont
       ansible.builtin.stat:
@@ -73,15 +73,15 @@
     - name: Read the containers of the robotont compose project
       ansible.builtin.command: >-
         docker ps -a --filter label=com.docker.compose.project=robotont
-        --format '{% raw %}{{.Names}}|{{.State}}|{{.Status}}|{{.Label "robotont.preset"}}|{{.Label "robotont.devices"}}|{{.Image}}{% endraw %}'
+        --format '{% raw %}{{.Names}}|{{.State}}|{{.Status}}|{{.Label "robotont.workspace"}}|{{.Label "robotont.devices"}}|{{.Image}}{% endraw %}'
       register: containers
       changed_when: false
       failed_when: false
       when: robotont_containers_expected | bool
 
-    - name: Validate the active preset definition
-      ansible.builtin.command: /usr/local/bin/robotont-preset check {{ robotont_preset_active | quote }}
-      register: preset_check
+    - name: Validate the active workspace definition
+      ansible.builtin.command: /usr/local/bin/robotont-workspace check {{ robotont_workspace_active | quote }}
+      register: workspace_check
       changed_when: false
       failed_when: false
       when: robotont_containers_expected | bool
@@ -94,7 +94,7 @@
       register: workspace_export
       changed_when: false
       failed_when: false
-      when: robotont_preset_active == 'host'
+      when: robotont_workspace_active == 'host'
 
     - name: Read the release and firmware bookkeeping
       ansible.builtin.shell: |
@@ -117,14 +117,14 @@
           root_free_gb: >-
             {{ ((ansible_facts.mounts | selectattr('mount', 'equalto', '/')
                 | map(attribute='size_available') | list | sum) / 1073741824) | round(1) }}
-          runtime: "{{ ('container runtime, preset ' ~ robotont_preset_active) if robotont_runtime_deployed | bool else 'ROS on the host (robotont-setup)' }}"
+          runtime: "{{ ('container runtime, workspace ' ~ robotont_workspace_active) if robotont_runtime_deployed | bool else 'ROS on the host (robotont-setup)' }}"
           service: "{{ service_show.stdout_lines if service_show.rc == 0 else ['systemctl failed: ' ~ (service_show.stderr | default(''))] }}"
           containers: "{{ (containers.stdout_lines | default([])) if robotont_containers_expected | bool else 'none expected' }}"
           containers_running: "{{ containers_running }}/{{ containers_total }}"
-          preset_check: "{{ ((preset_check.stdout_lines | default([])) + (preset_check.stderr_lines | default([]))) if robotont_containers_expected | bool else 'n/a' }}"
+          workspace_check: "{{ ((workspace_check.stdout_lines | default([])) + (workspace_check.stderr_lines | default([]))) if robotont_containers_expected | bool else 'n/a' }}"
           mainboard_present: "{{ mainboard.stat.exists }}"
           release: "{{ release_info.stdout_lines }}"
-          workspace: "{{ ((workspace_export.stdout if (workspace_export.rc | default(1)) == 0 else 'not available: ' ~ (workspace_export.stderr | default(workspace_export.msg | default(''))))) if robotont_preset_active == 'host' else 'n/a (container runtime)' }}"
+          workspace: "{{ ((workspace_export.stdout if (workspace_export.rc | default(1)) == 0 else 'not available: ' ~ (workspace_export.stderr | default(workspace_export.msg | default(''))))) if robotont_workspace_active == 'host' else 'n/a (container runtime)' }}"
 
     - name: Show the report
       ansible.builtin.debug:
@@ -136,6 +136,6 @@
           - service_show.rc == 0
           - "'ActiveState=active' in service_show.stdout_lines"
           - not (robotont_containers_expected | bool) or (containers_total | int > 0 and containers_running | int == containers_total | int)
-          - not (robotont_containers_expected | bool) or preset_check.rc == 0
-        fail_msg: "{{ inventory_hostname }}: robotont.service is not active, or the preset containers are not all running."
+          - not (robotont_containers_expected | bool) or workspace_check.rc == 0
+        fail_msg: "{{ inventory_hostname }}: robotont.service is not active, or the workspace containers are not all running."
         quiet: true

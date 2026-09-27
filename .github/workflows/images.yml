@@ -1,0 +1,59 @@
+# Builds the robot images on GitHub's native runners and pushes them to GHCR, so robots pull
+# instead of building (docs/07). One job per release variant: the NUC image on amd64, the Lite
+# image on arm64. The registry build cache keeps the dependency layer across releases.
+#
+# Images: ghcr.io/<owner>/robotont-ros:<release>. The package must be public for anonymous pulls;
+# check its visibility on GitHub after the first push (Packages, robotont-ros, Package settings).
+name: images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - robot/images/**
+      - robot/releases/**
+      - .github/workflows/images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  robotont-ros:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - release: "2026.09"
+            runner: ubuntu-24.04
+            platform: linux/amd64
+          - release: "2026.09-lite"
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push robotont-ros:${{ matrix.release }}
+        uses: docker/build-push-action@v6
+        with:
+          context: robot/images/robotont-ros
+          build-contexts: releases=robot/releases
+          build-args: |
+            RELEASE=${{ matrix.release }}
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/robotont-ros:${{ matrix.release }}
+          cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/robotont-ros:cache-${{ matrix.release }}
+          cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/robotont-ros:cache-${{ matrix.release }},mode=max
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}

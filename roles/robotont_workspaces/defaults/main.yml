@@ -1,0 +1,34 @@
+---
+# The account that owns the runtime (systemd User=, docker group, workspace). Students use it too.
+robotont_user: peko
+robotont_root: /srv/robotont                 # workspaces/, images/, releases/ ("the docker files")
+ros_distribution: jazzy
+
+# Release and images (docs/04 section 2, docs/07). The tag is the release name; images come from
+# GHCR (built by .github/workflows/images.yml) and are built on the robot only as a fallback.
+robotont_release: "2026.09"                  # robot/releases/<release>.repos, also the image tag
+robotont_image_repo: ghcr.io/robotont
+robotont_base_image: ros:jazzy-ros-base
+robotont_pull_images: true                   # pull the images of every workspace on deploy
+robotont_build_fallback: true                # build robotont-ros on the robot when the pull left it missing
+robotont_build_timeout: 3600
+
+# Workspace written on the FIRST deploy only (operational state afterwards, see docs/07).
+robotont_default_workspace: driver
+
+# Bringup configuration, rendered into /etc/robotont/robotont.env.
+robotont_generation: "3"
+robotont_namespace: ""
+robotont_realsense: true                    # what the NUC robots run today (jazzy-devel bringup default)
+robotont_lidar: false
+robotont_camera: false
+robotont_slam: false
+robotont_ros_domain_id: "{{ robotont_id }}"
+robotont_host_ws: "/home/{{ robotont_user }}/ros2_ws"
+robotont_driver_devices: "mainboard,gamepad"
+robotont_bringup_args: >-
+  generation:={{ robotont_generation }} realsense:={{ robotont_realsense | string | lower }}{% if robotont_generation == '3lite' %} namespace:={{ robotont_namespace }} lidar:={{ robotont_lidar | string | lower }} camera:={{ robotont_camera | string | lower }} slam:={{ robotont_slam | string | lower }}{% endif %}
+
+# Monitoring hooks.
+robotont_metrics_interval: 15s
+robotont_textfile_dir: /var/lib/prometheus/node-exporter

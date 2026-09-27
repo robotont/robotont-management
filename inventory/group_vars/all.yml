@@ -19,11 +19,11 @@ id: "{{ robotont_id }}"
 # The account that owns the runtime on the robot (systemd User=, docker group, workspace).
 robotont_user: peko
 
-# Container runtime (docs/07-container-runtime.md). Deployed by playbooks/setup_docker.yml;
-# behaviour does not change until a preset other than "host" is selected with "4. Switch preset".
+# Workspaces (docs/07-container-runtime.md): deployed by "2. Deploy", selected by "3. Switch
+# workspace". Images come from GHCR, built by .github/workflows/images.yml; the tag is the release.
 robotont_release: "2026.09"             # robot/releases/<release>.repos, also the image tag
-robotont_image_repo: ghcr.io/robotont   # images are built locally under this name until GHCR exists
-robotont_default_preset: host           # first deploy keeps the host-installed ROS running
+robotont_image_repo: ghcr.io/robotont
+robotont_default_workspace: driver      # first deploy on a robot; "host" only where ROS is installed on the host
 robotont_realsense: true                # the NUC robots run the RealSense bringup today
 robotont_lidar: false
 robotont_camera: false

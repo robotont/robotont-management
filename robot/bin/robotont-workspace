@@ -1,0 +1,176 @@
+#!/bin/bash
+# robotont-workspace: select and run the Robotont workspace (what runs on the robot).
+#   robotont-workspace list                 workspaces available under /srv/robotont/workspaces
+#   robotont-workspace current              the active workspace name (/etc/robotont/workspace)
+#   robotont-workspace status               active workspace, service state, running containers
+#   robotont-workspace check <name>         validate a workspace (compose config, device declarations)
+#   robotont-workspace switch <name>        make <name> active and restart robotont.service
+#   robotont-workspace pull                 pull the images of every workspace; prints "updated" when the active one changed
+#   robotont-workspace stop                 stop robotont.service (the active workspace stays selected)
+#   robotont-workspace run                  used by robotont.service: run the active workspace in the foreground
+#   robotont-workspace down                 used by robotont.service: stop the compose project
+set -euo pipefail
+
+ROBOTONT_ROOT="${ROBOTONT_ROOT:-/srv/robotont}"
+WORKSPACES="$ROBOTONT_ROOT/workspaces"
+ENV_FILE="${ROBOTONT_ENV_FILE:-/etc/robotont/robotont.env}"
+STATE_FILE="${ROBOTONT_STATE_FILE:-/etc/robotont/workspace}"
+PROJECT=robotont
+DEVICE_VOCABULARY="mainboard lidar gamepad realsense camera"
+EXCLUSIVE_DEVICES="mainboard lidar realsense camera"
+
+usage() { sed -n '2,11p' "$0"; }
+die() { echo "robotont-workspace: $*" >&2; exit 2; }
+
+current() {
+  if [ -s "$STATE_FILE" ]; then tr -d '[:space:]' < "$STATE_FILE"; else echo host; fi
+}
+
+list() {
+  local d n
+  for d in "$WORKSPACES"/*/; do
+    [ -d "$d" ] || continue
+    n=$(basename "$d")
+    [[ "$n" == _* ]] && continue
+    echo "$n"
+  done
+}
+
+workspace_dir() {
+  local name="$1"
+  [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die "invalid workspace name '$name' (use [a-z0-9-], max 63 characters)"
+  [ -d "$WORKSPACES/$name" ] || die "unknown workspace '$name'; available: $(list | tr '\n' ' ')"
+  echo "$WORKSPACES/$name"
+}
+
+compose() {  # compose <workspace> <compose args...>
+  local dir; dir="$(workspace_dir "$1")"; shift
+  ROBOTONT_WORKSPACE="$(basename "$dir")" docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$dir/compose.yaml" "$@"
+}
+
+read -r -d '' CHECK_PY <<'PY' || true
+import json, os, sys
+name, vocab, exclusive = sys.argv[1], set(sys.argv[2].split()), set(sys.argv[3].split())
+cfg = json.load(sys.stdin)
+present = {
+    "mainboard": os.path.exists("/dev/robotont"),
+    "lidar": os.path.exists("/dev/lidar"),
+    "gamepad": os.path.isdir("/dev/input") and any(f.startswith("js") for f in os.listdir("/dev/input")),
+}
+claims, errors, warnings = {}, [], []
+services = cfg.get("services") or {}
+for svc, spec in services.items():
+    raw = (spec.get("labels") or {}).get("robotont.devices", "")
+    for d in [x.strip() for x in raw.split(",") if x.strip()]:
+        if d not in vocab:
+            errors.append(f"service '{svc}' declares unknown device '{d}' (vocabulary: {' '.join(sorted(vocab))})")
+        claims.setdefault(d, []).append(svc)
+        if present.get(d) is False:
+            warnings.append(f"service '{svc}' needs '{d}', which is not present right now")
+for d, svcs in claims.items():
+    if d in exclusive and len(svcs) > 1:
+        errors.append(f"exclusive device '{d}' is claimed by {', '.join(svcs)}")
+for w in warnings:
+    print(f"warning: {w}")
+for e in errors:
+    print(f"error: {e}", file=sys.stderr)
+summary = ", ".join(f"{d} <- {'+'.join(s)}" for d, s in claims.items()) or "none"
+print(f"workspace '{name}': {len(services)} service(s); devices: {summary}")
+sys.exit(1 if errors else 0)
+PY
+
+check() {
+  local name="$1" dir; dir="$(workspace_dir "$name")"
+  if [ -f "$dir/run.sh" ] && [ ! -f "$dir/compose.yaml" ]; then
+    [ -x "$dir/run.sh" ] || die "$dir/run.sh is not executable"
+    echo "workspace '$name': host script, ok"
+    return 0
+  fi
+  [ -f "$dir/compose.yaml" ] || die "workspace '$name' has neither compose.yaml nor run.sh"
+  compose "$name" config --format json | python3 -c "$CHECK_PY" "$name" "$DEVICE_VOCABULARY" "$EXCLUSIVE_DEVICES"
+}
+
+images_of() {  # images_of <workspace>: image references of a compose workspace, one per line
+  compose "$1" config --images 2>/dev/null | sort -u
+}
+
+image_ids() {  # image_ids <image...>: "<image> <id or missing>" per line
+  local img
+  for img in "$@"; do
+    printf '%s %s\n' "$img" "$(docker image inspect --format '{{.Id}}' "$img" 2>/dev/null || echo missing)"
+  done
+}
+
+pull() {
+  local active before after name dir tmp rc=0 missing=0
+  active="$(current)"
+  tmp="$(mktemp)"
+  before="$(image_ids $(images_of "$active" 2>/dev/null))"
+  for name in $(list); do
+    dir="$WORKSPACES/$name"
+    [ -f "$dir/compose.yaml" ] || continue
+    echo "pull: workspace '$name'"
+    if ! compose "$name" pull --quiet --ignore-buildable > "$tmp" 2>&1; then rc=1; fi
+    sed 's/^/  /' "$tmp"
+    if grep -qE 'denied|not found|manifest unknown' "$tmp"; then
+      echo "  hint: an image is not on the registry (CI has not built this release, or the package is private); a local build is used when present"
+    fi
+  done
+  rm -f "$tmp"
+  after="$(image_ids $(images_of "$active" 2>/dev/null))"
+  if [ "$before" != "$after" ]; then echo "updated: images of the active workspace '$active' changed"; fi
+  for name in $(list); do
+    [ -f "$WORKSPACES/$name/compose.yaml" ] || continue
+    while read -r img id; do
+      [ -n "$img" ] || continue
+      if [ "$id" = missing ]; then echo "missing: $img (workspace '$name')"; missing=1; fi
+    done <<< "$(image_ids $(images_of "$name"))"
+  done
+  [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ] && echo "pull: every workspace image is present"
+  return 0
+}
+
+status() {
+  echo "workspace:  $(current)"
+  echo "service: $(systemctl is-active robotont.service 2>/dev/null || echo unknown)"
+  docker ps --filter "label=com.docker.compose.project=$PROJECT" \
+    --format 'table {{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "robotont.workspace"}}\t{{.Label "robotont.devices"}}' 2>/dev/null \
+    || echo "containers: docker not available"
+}
+
+case "${1:-status}" in
+  list)     list ;;
+  current)  current ;;
+  status)   status ;;
+  check)    [ $# -eq 2 ] || die "usage: robotont-workspace check <name>"
+            check "$2" ;;
+  pull)     pull ;;
+  switch)   [ $# -eq 2 ] || die "usage: robotont-workspace switch <name>"
+            check "$2"
+            printf '%s\n' "$2" > "$STATE_FILE"
+            sudo systemctl restart robotont.service
+            echo "switched to '$2'"
+            status ;;
+  stop)     sudo systemctl stop robotont.service
+            echo "robotont.service stopped; the selected workspace stays '$(current)'" ;;
+  run)      name="$(current)"; dir="$(workspace_dir "$name")"
+            if [ -f "$dir/compose.yaml" ]; then
+              exec env ROBOTONT_WORKSPACE="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
+                -f "$dir/compose.yaml" up --remove-orphans --no-color
+            else
+              exec env ROBOTONT_WORKSPACE="$name" "$dir/run.sh"
+            fi ;;
+  down)     name="$(current)"; dir="$WORKSPACES/$name"
+            if [ -f "$dir/compose.yaml" ]; then
+              ROBOTONT_WORKSPACE="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
+                -f "$dir/compose.yaml" down --remove-orphans --timeout 10 || true
+            fi
+            # containers of a previous workspace that the current file does not know about
+            leftovers=$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" 2>/dev/null || true)
+            if [ -n "$leftovers" ]; then
+              # shellcheck disable=SC2086
+              docker rm -f $leftovers >/dev/null 2>&1 || true
+            fi ;;
+  -h|--help|help) usage ;;
+  *)        die "unknown command '$1' (try: robotont-workspace help)" ;;
+esac

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""robotont-metrics: preset, container and device state as node_exporter textfile metrics and status.json.
+"""robotont-metrics: workspace, container and device state as node_exporter textfile metrics and status.json.
 
 Runs from robotont-metrics.timer as root. Depends on python3 and the docker CLI only.
 Outputs:
@@ -17,7 +17,7 @@ import time
 
 PROJECT = "robotont"
 ENV_FILE = "/etc/robotont/robotont.env"
-PRESET_FILE = "/etc/robotont/preset"
+WORKSPACE_FILE = "/etc/robotont/workspace"
 FW_FILE = "/etc/robotont/firmware-version"
 PROM_DIR = os.environ.get("ROBOTONT_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
 STATUS_DIR = os.environ.get("ROBOTONT_STATUS_DIR", "/run/robotont")
@@ -105,7 +105,7 @@ def collect_containers():
         containers.append({
             "name": c.get("Name", "").lstrip("/"),
             "service": lbl.get("com.docker.compose.service", ""),
-            "preset": lbl.get("robotont.preset", ""),
+            "workspace": lbl.get("robotont.workspace", ""),
             "image": c.get("Config", {}).get("Image", ""),
             "state": c.get("State", {}).get("Status", "unknown"),
             "restarts": int(c.get("RestartCount", 0)),
@@ -116,7 +116,7 @@ def collect_containers():
 
 def main():
     env = read_env(ENV_FILE)
-    preset = read_text(PRESET_FILE, "host") or "host"
+    workspace = read_text(WORKSPACE_FILE, "host") or "host"
     release = env.get("ROBOTONT_RELEASE", "")
     firmware = read_text(FW_FILE)
     service = service_state()
@@ -136,14 +136,14 @@ def main():
                 claims.setdefault(d, []).append(c["service"])
 
     lines = [
-        "# robotont-metrics: preset, containers and devices of this robot",
-        f'robotont_preset_info{labels({"preset": preset, "release": release})} 1',
+        "# robotont-metrics: workspace, containers and devices of this robot",
+        f'robotont_workspace_info{labels({"workspace": workspace, "release": release})} 1',
         f'robotont_info{labels({"release": release, "firmware": firmware})} 1',
         f'robotont_service_active {1 if service == "active" else 0}',
         f"robotont_docker_available {1 if docker_ok else 0}",
     ]
     for c in containers:
-        base = {"preset": c["preset"], "service": c["service"]}
+        base = {"workspace": c["workspace"], "service": c["service"]}
         lines.append(f'robotont_container_state{labels({**base, "state": c["state"]})} 1')
         lines.append(f'robotont_container_restarts_total{labels(base)} {c["restarts"]}')
         lines.append(f'robotont_container_up{labels({**base, "image": c["image"]})} {1 if c["state"] == "running" else 0}')
@@ -157,7 +157,7 @@ def main():
     prom = "\n".join(lines) + "\n"
 
     status = {
-        "time": int(time.time()), "preset": preset, "release": release, "firmware": firmware,
+        "time": int(time.time()), "workspace": workspace, "release": release, "firmware": firmware,
         "service": service, "docker": docker_ok, "containers": containers,
         "devices": present, "claims": claims,
     }

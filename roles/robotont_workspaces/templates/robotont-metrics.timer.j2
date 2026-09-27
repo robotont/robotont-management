@@ -1,0 +1,11 @@
+# Managed by Ansible (roles/robotont_workspaces).
+[Unit]
+Description=Run robotont-metrics periodically
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec={{ robotont_metrics_interval }}
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

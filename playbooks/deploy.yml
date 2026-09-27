@@ -1,0 +1,44 @@
+---
+# 2. Deploy: the workspaces of this repository onto ONE robot (docs/07). Copies robot/ to
+# /srv/robotont, writes /etc/robotont/robotont.env, pulls the images every workspace references
+# (GHCR, built by CI), installs robotont.service and the metrics timer, and restarts the active
+# workspace when its image changed. The first deploy selects robotont_default_workspace (driver).
+# Run it again after a release bump or a new workspace: 1 to 6 minutes, mostly the pull.
+#
+#   Input: robotont_id (Robot number) of a robot set up by "1. Setup Ubuntu".
+#   CLI:   ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
+#          -e robotont_pull_images=false      skip the pull (robot without internet)
+#          -e robotont_build_fallback=false   never build on the robot
+#          -e robotont_rebuild=true           build on the robot even when the image exists (Dockerfile test)
+- name: Select the robot
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check that the robot is enrolled
+      ansible.builtin.assert:
+        that:
+          - robotont_id is defined
+          - ('robotont-' ~ robotont_id) in groups['all']
+        fail_msg: "robotont-{{ robotont_id | default('?') }} is not in the inventory. Run 1. Setup Ubuntu first."
+        quiet: true
+
+    - name: Put only this robot into the run-time group
+      ansible.builtin.add_host:
+        name: "robotont-{{ robotont_id }}"
+        groups: robots
+
+- name: Deploy the workspaces
+  hosts: robots
+  become: true
+  roles:
+    - robotont_workspaces
+  post_tasks:
+    - name: Show the runtime status
+      ansible.builtin.command: /usr/local/bin/robotont-workspace status
+      become_user: "{{ robotont_user }}"
+      changed_when: false
+      register: workspace_status
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: deployed\n{{ workspace_status.stdout }}"

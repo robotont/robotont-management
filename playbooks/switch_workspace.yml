@@ -1,0 +1,79 @@
+---
+# 3. Switch workspace: activate a workspace on ONE robot with the container runtime (docs/07).
+#   Inputs: robotont_id (Robot number), workspace (a directory under robot/workspaces)
+#   CLI:    ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=driver
+- name: Select the robot
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inputs
+      ansible.builtin.assert:
+        that:
+          - robotont_id is defined
+          - ('robotont-' ~ robotont_id) in groups['all']
+          - workspace is defined
+          - workspace is match('^[a-z0-9][a-z0-9-]{0,62}$')
+        fail_msg: "Needed: robotont_id of an enrolled robot (1. Setup Ubuntu) and workspace ([a-z0-9-], max 63 characters)."
+        quiet: true
+
+- name: Switch the Robotont workspace
+  hosts: "robotont-{{ robotont_id | default('none') }}"
+  become: true
+  vars:
+    workspace_wait_seconds: 60
+  tasks:
+    - name: Check that the container runtime is deployed
+      ansible.builtin.stat:
+        path: /usr/local/bin/robotont-workspace
+      register: workspace_tool
+
+    - name: Stop when the runtime is missing
+      ansible.builtin.assert:
+        that: workspace_tool.stat.exists
+        fail_msg: "{{ inventory_hostname }} has no workspaces yet: run 2. Deploy first."
+        quiet: true
+
+    - name: Validate the workspace on the robot
+      ansible.builtin.command: /usr/local/bin/robotont-workspace check {{ workspace | quote }}
+      become_user: "{{ robotont_user }}"
+      changed_when: false
+
+    - name: Read the currently active workspace
+      ansible.builtin.command: /usr/local/bin/robotont-workspace current
+      changed_when: false
+      register: current_workspace
+
+    - name: Write the new workspace
+      ansible.builtin.copy:
+        content: "{{ workspace }}\n"
+        dest: /etc/robotont/workspace
+        owner: "{{ robotont_user }}"
+        group: "{{ robotont_user }}"
+        mode: "0644"
+
+    - name: Restart robotont.service with the new workspace
+      ansible.builtin.systemd_service:
+        name: robotont.service
+        state: restarted
+
+    - name: Wait for robotont.service to be active
+      ansible.builtin.command: systemctl is-active robotont.service
+      register: service_state
+      changed_when: false
+      failed_when: false
+      retries: "{{ (workspace_wait_seconds / 5) | int }}"
+      delay: 5
+      until: service_state.stdout == 'active'
+
+    - name: Give the containers time to start
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: Show the runtime status
+      ansible.builtin.command: /usr/local/bin/robotont-workspace status
+      changed_when: false
+      register: workspace_status
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ current_workspace.stdout }} -> {{ workspace }}\n{{ workspace_status.stdout }}"

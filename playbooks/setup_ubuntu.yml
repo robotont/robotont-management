@@ -1,15 +1,19 @@
 ---
-# 1. Setup Ubuntu: first contact with a freshly installed robot, and its enrolment in the fleet.
+# 1. Setup Ubuntu: everything a robot needs on the host before workspaces can be deployed, and
+# its enrolment in the fleet. Once per robot; safe to re-run.
 #
 # Inputs (Semaphore dialog, or -e on the command line):
 #   robot_address    IP or DNS name Ansible reaches the robot at (192.168.1.21, robotont-123.local)
 #   robotont_id      robot number N: hostname robotont-N, ROS_DOMAIN_ID N, hotspot 192.168.200.N
 #   robot_type       "3" (Robotont 3, Intel NUC) or "3lite" (Robotont 3 Lite, Raspberry Pi 5)
 #   robotont_camera  true when the IMX500 AI camera is fitted (Lite only)
+# Wi-Fi values from the Semaphore environment (server/.env) or -e: wifi_hotspot_password (or
+# wifi_pass), wifi_client_ssid, wifi_client_password.
 #
-# What it does: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite,
-# NetworkManager, BlueZ, avahi, network handover); then writes inventory/robots/robotont-N.yaml.
-# Seconds on a NUC, one to two minutes on a Pi the first time. Safe to re-run.
+# What it does: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates
+# suite, NetworkManager, BlueZ, avahi, network handover, one reboot); hostname, udev symlinks,
+# device groups, hotspot and lab Wi-Fi profiles (roles/robotont_host); Docker Engine; then
+# writes inventory/robots/robotont-N.yaml. About 5 minutes on a fresh Lite robot.
 #
 # CLI: ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local \
 #        -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false
@@ -65,6 +69,14 @@
     - role: robotont_headless
       when: robotont_generation == '3lite' and robotont_headless | default(true) | bool
 
+# What robotont-setup did on the host besides ROS (hostname, udev, groups, Wi-Fi), and Docker.
+- name: Host configuration and Docker Engine
+  hosts: robots
+  become: true
+  roles:
+    - robotont_host
+    - docker
+
 - name: Record the robot in the inventory
   hosts: robots
   gather_facts: false
@@ -88,4 +100,4 @@
 
     - name: Next step
       ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} enrolled at {{ ansible_host }}. Next: 2. Setup ROS with Robot number {{ robotont_id }}."
+        msg: "{{ inventory_hostname }} enrolled at {{ ansible_host }}. Next: 2. Deploy with Robot number {{ robotont_id }}."

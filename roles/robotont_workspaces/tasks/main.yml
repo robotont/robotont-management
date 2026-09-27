@@ -1,0 +1,191 @@
+---
+# Deploys /srv/robotont (workspaces, image definitions, releases), /etc/robotont, pulls the
+# images every workspace needs, and installs the robotont.service that runs the active workspace,
+# the sudoers whitelist and the metrics timer. Order matters: images are pulled before the unit
+# is (re)started, so a fresh robot never starts a workspace whose image is missing.
+# The active workspace is operational state: written only on the first deploy
+# (robotont_default_workspace) or when `workspace` is passed (playbooks/switch_workspace.yml).
+- name: Check that the robot user exists
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ robotont_user }}"
+
+- name: Create the runtime directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ robotont_root }}"
+    - /etc/robotont
+
+- name: Deploy workspaces, image definitions and release files
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../robot/{{ item }}/"
+    dest: "{{ robotont_root }}/{{ item }}/"
+    mode: preserve
+  loop:
+    - workspaces
+    - images
+    - releases
+  notify: Restart robotont            # a changed compose file only applies to a restarted unit
+
+- name: Install the robotont command-line tools
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../robot/bin/{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: "0755"
+  loop:
+    - robotont-workspace
+    - robotont-metrics
+    - robotont-status
+
+- name: Write /etc/robotont/robotont.env
+  ansible.builtin.template:
+    src: robotont.env.j2
+    dest: /etc/robotont/robotont.env
+    owner: root
+    group: "{{ robotont_user }}"
+    mode: "0640"
+  notify: Restart robotont
+
+# Robots deployed before the workspace naming (docs/07): move the state file, drop the old tree.
+- name: Look for a state file from the preset naming
+  ansible.builtin.stat:
+    path: /etc/robotont/preset
+  register: legacy_state
+
+- name: Rename the state file from the preset naming
+  ansible.builtin.command: mv /etc/robotont/preset /etc/robotont/workspace
+  args:
+    creates: /etc/robotont/workspace
+  when: legacy_state.stat.exists
+
+- name: Remove files from the preset naming
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/robotont/preset
+    - /usr/local/bin/robotont-preset
+    - /etc/sudoers.d/robotont-preset
+    - /opt/robotont
+
+- name: Check whether a workspace is already selected
+  ansible.builtin.stat:
+    path: /etc/robotont/workspace
+  register: workspace_file
+
+- name: Select the workspace (first deploy, or explicit switch)
+  ansible.builtin.copy:
+    content: "{{ workspace | default(robotont_default_workspace) }}\n"
+    dest: /etc/robotont/workspace
+    owner: "{{ robotont_user }}"
+    group: "{{ robotont_user }}"
+    mode: "0644"
+  when: workspace is defined or not workspace_file.stat.exists
+  notify: Restart robotont
+
+# Images: pulled as the robot user (group docker), the way an operator would. "updated" in the
+# output means an image of the active workspace changed, so the unit must be restarted.
+- name: Pull the images of every workspace (GHCR; the robot needs internet)
+  ansible.builtin.command: /usr/local/bin/robotont-workspace pull
+  become_user: "{{ robotont_user }}"
+  register: image_pull
+  changed_when: "'updated' in image_pull.stdout"
+  failed_when: false
+  when: robotont_pull_images | bool
+  notify: Restart robotont
+
+- name: Show the pull result
+  ansible.builtin.debug:
+    msg: "{{ (image_pull.stdout_lines | default([])) + (image_pull.stderr_lines | default([])) }}"
+  when: robotont_pull_images | bool
+
+- name: Look for the robotont-ros image
+  ansible.builtin.command: docker image inspect --format '{% raw %}{{.Id}}{% endraw %}' {{ robotont_image_repo }}/robotont-ros:{{ robotont_release }}
+  register: ros_image
+  changed_when: false
+  failed_when: false
+
+# Fallback for robots without registry access, or before the first CI build of a release.
+# Registry and package mirrors fail transiently; a retry resumes from Docker's build cache.
+- name: Build robotont-ros on the robot (fallback, 15 to 40 minutes)
+  ansible.builtin.command: >-
+    docker compose --env-file /etc/robotont/robotont.env
+    -f {{ robotont_root }}/images/compose.build.yaml build robotont-ros
+  become_user: "{{ robotont_user }}"
+  async: "{{ robotont_build_timeout }}"
+  poll: 30
+  register: image_build
+  until: image_build.rc == 0
+  retries: 3
+  delay: 30
+  when: (ros_image.rc != 0 and robotont_build_fallback | bool) or robotont_rebuild | default(false) | bool
+  notify: Restart robotont
+
+- name: Allow the robot user to control robotont.service without a password
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: /etc/sudoers.d/robotont-workspace
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Install robotont.service (replaces the unit installed by robotont-setup)
+  ansible.builtin.template:
+    src: robotont.service.j2
+    dest: /etc/systemd/system/robotont.service
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart robotont
+
+- name: Remove the legacy unit from robotont-setup
+  ansible.builtin.file:
+    path: /lib/systemd/system/robotont.service
+    state: absent
+  notify: Reload systemd
+
+- name: Create /run/robotont now and at every boot
+  ansible.builtin.copy:
+    content: "d /run/robotont 0755 root root -\n"
+    dest: /etc/tmpfiles.d/robotont.conf
+    mode: "0644"
+  register: tmpfiles
+
+- name: Apply the tmpfiles entry
+  ansible.builtin.command: systemd-tmpfiles --create /etc/tmpfiles.d/robotont.conf
+  when: tmpfiles.changed
+
+- name: Create the node_exporter textfile directory
+  ansible.builtin.file:
+    path: "{{ robotont_textfile_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Install the metrics service and timer
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop:
+    - robotont-metrics.service
+    - robotont-metrics.timer
+  notify:
+    - Reload systemd
+    - Restart robotont-metrics timer
+
+- name: Apply pending unit changes before enabling
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start robotont.service and the metrics timer
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - robotont.service
+    - robotont-metrics.timer

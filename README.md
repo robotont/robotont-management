@@ -32,47 +32,48 @@ Future work may include:
 ---
 
 <img src=".images/architecture_detailed.png" width="1000" title="Architecture">
-## Status (2026-09-26)
+## Status (2026-09-27)
 
-v1 "reproduce the current setup": the existing `robotont-setup` playbooks run unchanged from
-Semaphore, pinned as git submodules: `external/robotont-setup` (branch `jazzy-devel-veiko`) for
-Robotont 3 on Intel NUC and `external/robotont-setup-rpi` (branch `jazzy-rpi`, with a headless
-role for Ubuntu Server) for Robotont 3 Lite on Raspberry Pi 5. Verified live on a Pi 5
-(test log in [docs/06](docs/06-v1-reproduce-current-setup.md)). Semaphore has four numbered
-tasks: 1. Setup Ubuntu, 2. Setup ROS, 3. Setup Docker, 4. Switch preset ([docs/semaphore-setup.md](docs/semaphore-setup.md)).
-
-Container runtime (Docker on the robots, [docs/07](docs/07-container-runtime.md)): verified on the
-same Pi without mainboard on 2026-09-27: image built on the robot, test-talker and driver presets,
-reboot survival, rollback to the host runtime (test log in docs/07). Driving in a container waits
-for the mainboard.
+Robots are Docker-only: "1. Setup Ubuntu" prepares the host (network, hostname, udev, Wi-Fi,
+Docker Engine) and "2. Deploy" puts the *workspaces* of this repository onto a robot, pulling the
+images that GitHub Actions builds and pushes to GHCR. "3. Switch workspace" selects what runs:
+the driver, a demo, later a student environment ([docs/07](docs/07-container-runtime.md)).
+Verified end to end on a Robotont 3 Lite (Raspberry Pi 5) with mainboard and lidar; the first
+CI image build is pending a push. The upstream `robotont-setup` playbooks remain as
+"Setup ROS (legacy)" for robots that keep ROS on the host (git submodules, [docs/06](docs/06-v1-reproduce-current-setup.md)).
 
 ## Quick start
+
+Semaphore: `cp server/.env.example server/.env`, fill in the robot-side values, then
+`docker compose -f server/compose.yaml up -d`. The project, keys, inventory, environment and the
+tasks are created automatically ([docs/semaphore-setup.md](docs/semaphore-setup.md)); log in as
+`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy".
+
+The same from a terminal:
 
 ```
 git clone --recurse-submodules git@github.com:robotont/robotont-management.git
 cd robotont-management
-ansible-galaxy collection install community.general   # once per machine; the upstream ros role needs it
-ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=192.168.1.21 -e robotont_id=1 -e robot_type=3 -e robotont_camera=false
-ansible-playbook playbooks/setup_ros.yml -K -e robotont_id=1 -e wifi_pass=<hotspot password>
+ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false \
+  -e wifi_hotspot_password=... -e wifi_client_ssid=... -e wifi_client_password=...
+ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
+ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=test-talker
 ```
-
-Semaphore: `cp server/.env.example server/.env`, fill in the robot-side values, then
-`docker compose -f server/compose.yaml up -d`. The project, keys, inventory, environment and the
-four tasks are created automatically ([docs/semaphore-setup.md](docs/semaphore-setup.md)); log in as
-`admin` / `admin` at http://localhost:3000 and run "1. Setup Ubuntu".
 
 ## Repository layout
 
 ```
-external/robotont-setup/   upstream playbooks and roles for NUC robots (git submodule, pinned)
-external/robotont-setup-rpi/  the same repository at the Raspberry Pi branch (git submodule, pinned)
-patches/                   local patches applied to the submodule checkouts at run time
-inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
-playbooks/                 setup_ubuntu, setup_ros, setup_docker, switch_preset (Semaphore tasks 1 to 4);
+robot/                     deployed to /srv/robotont: workspaces/, images/ (Dockerfiles), releases/ (pinned sources), bin/
+.github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR
+playbooks/                 setup_ubuntu, deploy, switch_workspace (Semaphore tasks 1 to 3); setup_ros (legacy);
                            status (command-line report until Grafana)
-roles/                     robotont_headless (Ubuntu Server prerequisites), docker, robotont_presets
-robot/                     what is deployed to /opt/robotont: presets, image definitions, releases, scripts
-server/                    Docker Compose for Semaphore
+roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
+                           docker, robotont_workspaces
+inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
+server/                    Docker Compose for Semaphore, automatic bootstrap
+external/robotont-setup/   upstream playbooks for NUC robots (git submodule, pinned; legacy)
+external/robotont-setup-rpi/  the same repository at the Raspberry Pi branch (git submodule, pinned; legacy)
+patches/                   local patches applied to the submodule checkouts at run time (legacy)
 test/                      sample environment for static checks
 docs/                      analysis, mapping, plans, runbooks
 ```
@@ -86,7 +87,7 @@ docs/                      analysis, mapping, plans, runbooks
 | [docs/03-provisioning-steps-mapping.md](docs/03-provisioning-steps-mapping.md) | Every post-install step and where it lands in the fleet roles and playbooks |
 | [docs/04-software-firmware-versioning.md](docs/04-software-firmware-versioning.md) | Software deployment and versioning, firmware flashing options, monitoring signals |
 | [docs/05-implementation-plan.md](docs/05-implementation-plan.md) | Decisions, target layout, steps with tests, upstream fixes, open questions (later phases) |
-| [docs/06-v1-reproduce-current-setup.md](docs/06-v1-reproduce-current-setup.md) | v1: how the upstream playbooks run from here, the submodule, what v1 keeps, roadmap |
-| [docs/07-container-runtime.md](docs/07-container-runtime.md) | Container runtime: presets, switching, images, devices, monitoring hooks, runbook, phases |
-| [docs/semaphore-setup.md](docs/semaphore-setup.md) | The local Semaphore: automatic setup, the four tasks and their dialog fields |
-| [docs/08-hardware-test-guide.md](docs/08-hardware-test-guide.md) | Step-by-step manual verification of v1 and the container runtime once a robot is available |
+| [docs/06-v1-reproduce-current-setup.md](docs/06-v1-reproduce-current-setup.md) | Legacy host-ROS setup: how the upstream playbooks run from here, the submodules, test log |
+| [docs/07-container-runtime.md](docs/07-container-runtime.md) | Workspaces: switching, images and CI, devices, monitoring hooks, runbook, phases, test log |
+| [docs/semaphore-setup.md](docs/semaphore-setup.md) | The local Semaphore: automatic setup, the tasks and their dialog fields |
+| [docs/08-hardware-test-guide.md](docs/08-hardware-test-guide.md) | Step-by-step manual verification on a robot: host setup, workspaces, known issues |

@@ -55,9 +55,11 @@ services:
     environment:
       SEMAPHORE_URL: http://semaphore:3000
       TEMPLATES_FILE: /bootstrap/templates.json
+      WORKSPACES_DIR: /bootstrap/workspaces          # fills the Workspace dropdown of "3. Switch workspace"
     volumes:
       - ./bootstrap.py:/bootstrap/bootstrap.py:ro
       - ./templates.json:/bootstrap/templates.json:ro
+      - ../robot/workspaces:/bootstrap/workspaces:ro
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
     entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 

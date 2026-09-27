@@ -1,0 +1,15 @@
+---
+# What robotont-setup did on the host besides ROS, so that a Docker-only robot needs no
+# "Setup ROS (legacy)": hostname, udev symlinks, device groups, Wi-Fi hotspot and lab Wi-Fi,
+# Wi-Fi power saving, firewall. Idempotent on robots that ran the upstream playbook.
+robotont_user: peko
+robotont_hostname: "robotont-{{ robotont_id }}"
+robotont_hotspot_address: "192.168.200.{{ robotont_id }}/24"
+# First Wi-Fi interface of the robot (wlan0 on a Pi, wlp* on a NUC).
+robotont_wifi_interface: "{{ ansible_facts.interfaces | select('match', '^wl') | list | first | default('wlan0') }}"
+# Hotspot robotont-N. Password from the Semaphore environment or -e: wifi_hotspot_password
+# (Lite naming) or wifi_pass (NUC naming). Without either, no hotspot profile is written.
+robotont_hotspot_password: "{{ wifi_hotspot_password | default(wifi_pass | default('')) }}"
+# Lab Wi-Fi the robot joins when in range (preferred over the hotspot). Optional.
+robotont_client_ssid: "{{ wifi_client_ssid | default('') }}"
+robotont_client_password: "{{ wifi_client_password | default('') }}"

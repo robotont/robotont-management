@@ -1,0 +1,61 @@
+---
+- name: Set the hostname
+  ansible.builtin.hostname:
+    name: "{{ robotont_hostname }}"
+
+- name: Map the hostname in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\.0\.1\.1'
+    line: "127.0.1.1   {{ robotont_hostname }}"
+
+- name: Give the robot user access to serial ports, joysticks and video devices
+  ansible.builtin.user:
+    name: "{{ robotont_user }}"
+    groups: dialout,input,video
+    append: true
+
+# The mainboard as /dev/robotont and the RPLidar as /dev/lidar, mode 0666 (same file as upstream).
+- name: Install the udev rules for the mainboard and the lidar
+  ansible.builtin.copy:
+    src: 99-robotont.rules
+    dest: /etc/udev/rules.d/99-robotont.rules
+    mode: "0644"
+  notify: Reload udev
+
+- name: Turn off Wi-Fi power saving
+  ansible.builtin.copy:
+    content: "[connection]\nwifi.powersave = 2\n"
+    dest: /etc/NetworkManager/conf.d/default-wifi-powersave-on.conf
+    mode: "0644"
+  notify: Reload NetworkManager
+
+- name: Read the firewall state
+  ansible.builtin.command: ufw status
+  register: ufw_status
+  changed_when: false
+  failed_when: false          # rc 1 when ufw is not installed
+
+- name: Disable the firewall (DDS needs open UDP ports)
+  ansible.builtin.command: ufw disable
+  when: "ufw_status.rc == 0 and 'Status: active' in ufw_status.stdout"
+
+- name: Write the hotspot profile robotont-{{ robotont_id }}
+  ansible.builtin.template:
+    src: hotspot.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/robotont-ap.nmconnection
+    owner: root
+    group: root
+    mode: "0600"
+  when: robotont_hotspot_password | length >= 8
+  notify: Reload NetworkManager connections
+
+- name: Write the lab Wi-Fi profile
+  ansible.builtin.template:
+    src: client.nmconnection.j2
+    dest: /etc/NetworkManager/system-connections/robotont-client.nmconnection
+    owner: root
+    group: root
+    mode: "0600"
+  when: robotont_client_ssid | length > 0
+  notify: Reload NetworkManager connections

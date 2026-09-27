@@ -1,0 +1,28 @@
+# Managed by Ansible (roles/robotont_host). Hotspot of this robot, used when no lab Wi-Fi is in range.
+[connection]
+id={{ robotont_hostname }}-hotspot
+type=wifi
+interface-name={{ robotont_wifi_interface }}
+autoconnect=true
+autoconnect-priority=-1
+
+[wifi]
+ssid={{ robotont_hostname }}
+mode=ap
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk={{ robotont_hotspot_password }}
+pmf=2
+group=ccmp;
+pairwise=ccmp;
+proto=rsn;
+
+[ipv4]
+method=shared
+address1={{ robotont_hotspot_address }}
+
+[ipv6]
+method=ignore
+
+[proxy]

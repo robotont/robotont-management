@@ -42,6 +42,7 @@ REPO_PATH = os.environ.get("REPO_PATH", "/repositories/robotont-management")
 REPO_BRANCH = os.environ.get("REPO_BRANCH", "main")
 INVENTORY_PATH = os.environ.get("INVENTORY_PATH", "inventory")
 TEMPLATES_FILE = os.environ.get("TEMPLATES_FILE", os.path.join(os.path.dirname(__file__), "templates.json"))
+WORKSPACES_DIR = os.environ.get("WORKSPACES_DIR", os.path.join(os.path.dirname(__file__), "..", "robot", "workspaces"))
 EXTRA_VARS = {
     name: os.environ[var]
     for name, var in (("wifi_pass", "WIFI_PASS"), ("wifi_hotspot_password", "WIFI_HOTSPOT_PASSWORD"),
@@ -156,6 +157,16 @@ def configure(api):
 
     with open(TEMPLATES_FILE) as f:
         templates = json.load(f)
+    # "@workspaces" in a dropdown = the directories under robot/workspaces (one per workspace).
+    workspaces = sorted(d for d in os.listdir(WORKSPACES_DIR)
+                        if not d.startswith("_") and os.path.isdir(os.path.join(WORKSPACES_DIR, d))
+                        and (os.path.exists(os.path.join(WORKSPACES_DIR, d, "compose.yaml"))
+                             or os.path.exists(os.path.join(WORKSPACES_DIR, d, "run.sh"))))
+    for t in templates:
+        for var in t.get("survey_vars", []):
+            if var.get("values") == "@workspaces":
+                var["values"] = [{"name": w, "value": w} for w in workspaces]
+                print(f"  workspaces   {', '.join(workspaces)}")
     for t in templates:
         ensure(api, "template", f"/api/project/{pid}/templates", t["name"], {
             "project_id": pid, "name": t["name"], "app": "ansible", "playbook": t["playbook"],

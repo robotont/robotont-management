@@ -2,6 +2,10 @@
 
 ## Purpose
 
+> **Legacy since 2026-09-27.** Robots are set up Docker-only ("1. Setup Ubuntu", "2. Deploy",
+> [07](07-container-runtime.md)); the upstream playbooks described here remain available as the
+> Semaphore task "Setup ROS (legacy)" for robots that keep ROS on the host (workspace `host`).
+
 Automate what maintainers do by hand today, without changing it: run the existing
 `robotont-setup` playbooks from Semaphore against robots that are reachable over SSH. The upstream
 code is pinned as a git submodule, so every run uses a known commit, and moving to a newer commit
@@ -31,9 +35,9 @@ robotont-management/
 │       └── robotont_rpi.yml        robotont_generation: "3lite", ansible_become, jazzy-rpi variables
 ├── playbooks/
 │   ├── setup_ubuntu.yml            1. SSH and sudo check, Ubuntu Server prerequisites, enrolment
-│   ├── setup_ros.yml               2. preflight, patches, then the upstream robots.yaml
-│   ├── setup_docker.yml            3. container runtime: Docker, presets, unit, image build (docs/07)
-│   ├── switch_preset.yml           4. activate a preset (docs/07)
+│   ├── setup_ros.yml               legacy: preflight, patches, then the upstream robots.yaml
+│   ├── deploy.yml                  2. workspaces: /srv/robotont, image pulls, unit (docs/07)
+│   ├── switch_workspace.yml        3. activate a workspace (docs/07)
 │   └── status.yml                  read-only report of every enrolled robot (command line, until Grafana)
 ├── roles/robotont_headless/        Ubuntu Server prerequisites for Lite robots
 ├── server/
@@ -129,7 +133,7 @@ ansible-playbook playbooks/status.yml -K        # read-only report of every enro
 
 See [semaphore-setup.md](semaphore-setup.md): `docker compose -f server/compose.yaml up -d` creates
 the project, keys, repository, inventory, environment and the four tasks from `server/.env`. Run
-"1. Setup Ubuntu", then "2. Setup ROS".
+"1. Setup Ubuntu", then "Setup ROS (legacy)".
 
 ## Selecting robots and the generation
 
@@ -141,10 +145,10 @@ the project, keys, repository, inventory, environment and the four tasks from `s
 
 ## What v1 knowingly keeps
 
-- **Not idempotent.** Every "2. Setup ROS" run upgrades all apt packages, wipes and rebuilds the
+- **Not idempotent.** Every "Setup ROS (legacy)" run upgrades all apt packages, wipes and rebuilds the
   ROS workspace and fetches from GitHub. It is a reinstall, not an update. "1. Setup Ubuntu" and
   `status.yml` are safe to repeat at any time.
-- **Reboot at the end** of the upstream role, with errors ignored. Follow "2. Setup ROS" with `status.yml`.
+- **Reboot at the end** of the upstream role, with errors ignored. Follow "Setup ROS (legacy)" with `status.yml`.
 - **Hotspot switch.** `netplan apply` turns the Wi-Fi interface into the hotspot `robotont-<id>`;
   provisioning over Wi-Fi cuts the session. Use Ethernet.
 - **Deprecated `apt_key`** in the upstream ros role: fine with ansible-core 2.21 on Ubuntu 24.04,
@@ -156,7 +160,7 @@ the project, keys, repository, inventory, environment and the four tasks from `s
 ## Roadmap after v1
 
 The container runtime ([07](07-container-runtime.md)) is planned in parallel: it keeps this
-layer and adds Docker presets on top, starting with preset `host` (no behaviour change).
+layer and adds Docker workspaces on top; `host` remains a workspace for robots set up this way.
 
 1. Generation selectable in Semaphore: done through the inventory groups (`robotont_generation`); a survey variable override is optional.
 2. Upstream hygiene with the robotont-setup maintainers: a variable around the final reboot,
@@ -179,7 +183,8 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part A.
 | 2026-09-26 | robotont-123 (after reboot: NetworkManager owns eth0 and wlan0) | test_connection, then provision.yml `--skip-tags camera` | test_connection green; provision reached the upstream ros role and failed at `Install ROS (jazzy-desktop)`: apt "held broken packages", the image lacks the `noble-updates` suite. Headless role extended to add it. Re-run follows |
 | 2026-09-26 | robotont-123 | provision.yml `--skip-tags camera` (re-run) | **green**: ok=68 changed=35 failed=0 in 18 min 41 s, reboot included. Afterwards: `robotont.service` active (NRestarts 0), hostname `robotont-123`, ROS graph on domain 123 with namespace `rt123` (`odom`, `battery_state`, `scan`, `joy`, `range_*`), udev rule in place, `peko` in dialout/input/video, `bluetoothctl` present, hotspot profile `robotont-123-hotspot` (priority -1) and client profile for the lab Wi-Fi (priority 100) active, 47 GB free. Health check green in report mode. Without hardware: driver retries `/dev/ttyACM0` once per second, `camera_node` respawns every 3 s ("no cameras available") because the upstream service template hard-codes `camera:=true`. Deployed commits captured in `robot/releases/2026.09-lite.repos` |
 | 2026-09-26 | robotont-123 | Semaphore UI (user): Test connection, Health Check | **red**: the CLI Args field takes one argument per entry, so `--limit robotont-123` became a single token and Ansible looked for a playbook of that name. Fix: the bootstrap now enables Semaphore's own Limit, Tags, Skip Tags and Debug fields on every template (`task_params`) and adds survey dropdowns (`healthcheck_strict`, `preset`); the inventory lists real robots only so Limit may stay empty. Re-verified through the API with Limit `robotont-123` (Test connection ok=7) and the survey answer no (Health Check ok=11, 3 skipped) |
-| 2026-09-26 | robotont-123 | Semaphore reduced to three dialog-driven tasks (user decision: simplicity, no status/restart/reboot tasks; Grafana later). `1. Setup Ubuntu` (address, number, type, camera), then `3. Switch preset` guard, then `2. Setup ROS` (number), all through the Semaphore API | **green**: Setup Ubuntu ok=16 (headless role no-op, enrolment file written from inside the container, proven by deleting and re-enrolling); Switch preset fails as intended with "no container runtime yet"; Setup ROS ok=53 changed=16 skipped=67 in 6 min (the run-time `robots` group held only robotont-123; camera tasks skipped by patch 0002 through `robotont_camera: false` instead of `--skip-tags`; reboot done). `status.yml` from the Mac afterwards: service active, hostname `robotont-123` |
-| 2026-09-27 | robotont-123, **fresh card**, mainboard and lidar fitted (user-driven, Semaphore UI, no static host mapping: the container resolves `.local` through the Docker host) | 1. Setup Ubuntu green; 2. Setup ROS | **red** at `Install ROS (jazzy-desktop)`: "Data could not be sent to remote host", although the package installed. Journal: the pre-handover networkd addresses (eth0 .71, wlan0 .70) expired at 13:13:44 next to NetworkManager's (.72, .73); the SSH session ran on an old one and timed out. Fixes: reboot after the handover in the headless role, `retries = 5` and `-4` in `ansible.cfg`. Re-run of 2. Setup ROS follows |
-| 2026-09-27 | robotont-123, fresh card, mainboard and lidar fitted (user-driven, Semaphore UI) | 2. Setup ROS re-run | **green** in 11 min. `status.yml` from the Mac: service active, `NRestarts=0`, hostname `robotont-123`, `mainboard_present: true`, 46 GB free, workspace = the Lite release commits. On the robot: `/dev/robotont -> ttyACM0`, `/dev/lidar -> ttyUSB0`, RPLidar identified (S/N, firmware 1.02), driver opens the mainboard ("Hardware interface is ready") but no `odom`, `battery_state` or `joint_states` topics: the mainboard sends nothing (battery not connected; firmware side, left out of this test by the user). Hotspot profile `robotont-123-hotspot` present. `camera_node` respawns every 3 s (upstream unit hard-codes `camera:=true`, docs/08 issue 5); gamepad not paired yet |
+| 2026-09-26 | robotont-123 | Semaphore reduced to three dialog-driven tasks (user decision: simplicity, no status/restart/reboot tasks; Grafana later). `1. Setup Ubuntu` (address, number, type, camera), then `3. Switch preset` guard, then `Setup ROS (legacy)` (number), all through the Semaphore API | **green**: Setup Ubuntu ok=16 (headless role no-op, enrolment file written from inside the container, proven by deleting and re-enrolling); Switch preset fails as intended with "no container runtime yet"; Setup ROS ok=53 changed=16 skipped=67 in 6 min (the run-time `robots` group held only robotont-123; camera tasks skipped by patch 0002 through `robotont_camera: false` instead of `--skip-tags`; reboot done). `status.yml` from the Mac afterwards: service active, hostname `robotont-123` |
+| 2026-09-27 | robotont-123, **fresh card**, mainboard and lidar fitted (user-driven, Semaphore UI, no static host mapping: the container resolves `.local` through the Docker host) | 1. Setup Ubuntu green; Setup ROS (legacy) | **red** at `Install ROS (jazzy-desktop)`: "Data could not be sent to remote host", although the package installed. Journal: the pre-handover networkd addresses (eth0 .71, wlan0 .70) expired at 13:13:44 next to NetworkManager's (.72, .73); the SSH session ran on an old one and timed out. Fixes: reboot after the handover in the headless role, `retries = 5` and `-4` in `ansible.cfg`. Re-run of Setup ROS (legacy) follows |
+| 2026-09-27 | robotont-123, fresh card, mainboard and lidar fitted (user-driven, Semaphore UI) | Setup ROS (legacy) re-run | **green** in 11 min. `status.yml` from the Mac: service active, `NRestarts=0`, hostname `robotont-123`, `mainboard_present: true`, 46 GB free, workspace = the Lite release commits. On the robot: `/dev/robotont -> ttyACM0`, `/dev/lidar -> ttyUSB0`, RPLidar identified (S/N, firmware 1.02), driver opens the mainboard ("Hardware interface is ready") but no `odom`, `battery_state` or `joint_states` topics: the mainboard sends nothing (battery not connected; firmware side, left out of this test by the user). Hotspot profile `robotont-123-hotspot` present. `camera_node` respawns every 3 s (upstream unit hard-codes `camera:=true`, docs/08 issue 5); gamepad not paired yet |
 | 2026-09-27 | robotont-123, fresh card | 3. Setup Docker, 4. Switch preset driver (user-driven) | green after a transient ISP outage; details in the docs/07 test log |
+| 2026-09-27 | robotont-123 | Semaphore reduced to 1. Setup Ubuntu / 2. Deploy / 3. Switch workspace; this path becomes "Setup ROS (legacy)" | see the docs/07 test log |

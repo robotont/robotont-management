@@ -1,0 +1,18 @@
+# Workspace "demo-example": template for demos. The bringup plus one extra node from the same image.
+# To create a demo: copy this directory to demo-<name> (max 31 characters, [a-z0-9-]), replace the
+# extra service(s), declare the devices they open in `robotont.devices`, and add a README.md that
+# says what the demo shows and what runs on a laptop.
+services:
+  driver:
+    extends:
+      file: ../_common/services.yaml
+      service: driver
+  demo:
+    extends:
+      file: ../_common/services.yaml
+      service: ros-app
+    image: ${ROBOTONT_IMAGE_REPO}/robotont-ros:${ROBOTONT_RELEASE}
+    container_name: robotont-demo
+    command: ros2 run demo_nodes_cpp talker
+    labels:
+      robotont.devices: ""
