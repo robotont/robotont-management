@@ -1,16 +1,48 @@
 ---
-# Health Check: read-only. Works for robots on the v1 host runtime (robotont-setup) and for the
-# container runtime. Reports service state, active preset, containers, devices, deployed release
-# and (host runtime) workspace commits, hostname, uptime and disk, then asserts.
-# -e healthcheck_strict=false reports only (for example on a VM without a mainboard).
+# Status: command-line check, not a Semaphore task (Grafana takes this role later; docs/05).
+# Read-only, every enrolled robot, no inputs. Reports reachability, sudo, robotont.service,
+# mainboard, hostname, uptime, disk, deployed workspace commits and (container runtime) the active
+# preset and its containers. Red only when a robot is unreachable, sudo fails, a submodule is
+# missing, or robotont.service is not active; a missing mainboard is reported, not failed.
+#
+# CLI: ansible-playbook playbooks/status.yml -K
+- name: Controller-side checks
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check that the robotont-setup submodules are checked out
+      ansible.builtin.stat:
+        path: "{{ playbook_dir }}/../external/{{ item }}/ansible/robots.yaml"
+      register: upstream_playbooks
+      loop:
+        - robotont-setup
+        - robotont-setup-rpi
 
-- name: Robotont health check
-  hosts: robots
+    - name: Fail early if a submodule is missing
+      ansible.builtin.assert:
+        that: upstream_playbooks.results | map(attribute='stat.exists') | list is all
+        fail_msg: "A submodule under external/ is empty. Run `git submodule update --init` in the repository."
+        quiet: true
+
+    - name: Check that the community.general collection is available
+      ansible.builtin.command: ansible-galaxy collection list community.general
+      register: collection_list
+      changed_when: false
+      failed_when: "'community.general' not in collection_list.stdout"
+
+- name: Robot status
+  hosts: all
   gather_facts: true
+  become: true
   vars:
-    healthcheck_strict: true
     robotont_ws: "/home/{{ ansible_user }}/ros2_ws"
   tasks:
+    - name: Confirm that sudo works
+      ansible.builtin.command: id -un
+      register: whoami
+      changed_when: false
+      failed_when: whoami.stdout != 'root'
+
     - name: Read robotont.service state
       ansible.builtin.command: >-
         systemctl show robotont.service -p ActiveState -p SubState -p NRestarts -p ExecMainStartTimestamp
@@ -18,7 +50,7 @@
       changed_when: false
       failed_when: false
 
-    - name: Read the active preset (container runtime; absent on v1 robots)
+    - name: Read the active preset (container runtime; absent on robots without it)
       ansible.builtin.slurp:
         src: /etc/robotont/preset
       register: preset_file
@@ -58,8 +90,7 @@
       ansible.builtin.command: vcs export --exact
       args:
         chdir: "{{ robotont_ws }}/src"
-      vars:
-        ansible_become: false    # git refuses peko's repositories when run as root
+      become: false               # git refuses peko's repositories when run as root
       register: workspace_export
       changed_when: false
       failed_when: false
@@ -79,14 +110,14 @@
 
     - name: Collect the report
       ansible.builtin.set_fact:
-        robotont_health:
+        robotont_status:
           hostname: "{{ ansible_facts.hostname }}"
           expected_hostname: "robotont-{{ id }}"
           uptime_minutes: "{{ (ansible_facts.uptime_seconds | int) // 60 }}"
           root_free_gb: >-
             {{ ((ansible_facts.mounts | selectattr('mount', 'equalto', '/')
                 | map(attribute='size_available') | list | sum) / 1073741824) | round(1) }}
-          runtime: "{{ ('container runtime, preset ' ~ robotont_preset_active) if robotont_runtime_deployed | bool else 'v1 host runtime (robotont-setup)' }}"
+          runtime: "{{ ('container runtime, preset ' ~ robotont_preset_active) if robotont_runtime_deployed | bool else 'ROS on the host (robotont-setup)' }}"
           service: "{{ service_show.stdout_lines if service_show.rc == 0 else ['systemctl failed: ' ~ (service_show.stderr | default(''))] }}"
           containers: "{{ (containers.stdout_lines | default([])) if robotont_containers_expected | bool else 'none expected' }}"
           containers_running: "{{ containers_running }}/{{ containers_total }}"
@@ -97,16 +128,14 @@
 
     - name: Show the report
       ansible.builtin.debug:
-        var: robotont_health
+        var: robotont_status
 
-    - name: Fail when the robot is not healthy
+    - name: Fail when robotont.service is not running
       ansible.builtin.assert:
         that:
           - service_show.rc == 0
           - "'ActiveState=active' in service_show.stdout_lines"
-          - mainboard.stat.exists
           - not (robotont_containers_expected | bool) or (containers_total | int > 0 and containers_running | int == containers_total | int)
           - not (robotont_containers_expected | bool) or preset_check.rc == 0
-        fail_msg: "{{ inventory_hostname }}: robotont.service not active, /dev/robotont missing, or the preset containers are not all running."
+        fail_msg: "{{ inventory_hostname }}: robotont.service is not active, or the preset containers are not all running."
         quiet: true
-      when: healthcheck_strict | bool

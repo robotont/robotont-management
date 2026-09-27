@@ -1,0 +1,100 @@
+---
+# 2. Setup ROS: the upstream robotont-setup run, unchanged, on ONE enrolled robot.
+#
+# Input: robotont_id, the Robot number of a robot enrolled by "1. Setup Ubuntu".
+#   Robotont 3 (NUC):              external/robotont-setup      branch jazzy-devel-veiko
+#   Robotont 3 Lite (Raspberry Pi): external/robotont-setup-rpi  branch jazzy-rpi + patches/
+#
+# Every run: apt upgrade, ROS 2 Jazzy, workspace wipe and full colcon build, hostname robotont-N,
+# Wi-Fi hotspot robotont-N, robotont.service, then a reboot. 20 to 60 minutes; run it over Ethernet.
+# Needs (Semaphore environment or -e): NUC wifi_pass; Lite wifi_hotspot_password, wifi_client_ssid,
+# wifi_client_password. Sudo password: Semaphore credential, or -K on the command line.
+#
+# CLI: ansible-playbook playbooks/setup_ros.yml -K -e robotont_id=123 \
+#        -e wifi_hotspot_password=... -e wifi_client_ssid=... -e wifi_client_password=...
+- name: Select the robot
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check that the robot is enrolled
+      ansible.builtin.assert:
+        that:
+          - robotont_id is defined
+          - ('robotont-' ~ robotont_id) in groups['all']
+        fail_msg: "robotont-{{ robotont_id | default('?') }} is not in the inventory. Run 1. Setup Ubuntu first."
+        quiet: true
+
+    # The upstream playbooks target the group "robots", which is empty on disk. Only the selected
+    # robot is put into it, so an upstream run can never touch the rest of the fleet.
+    - name: Put only this robot into the group the upstream playbooks target
+      ansible.builtin.add_host:
+        name: "robotont-{{ robotont_id }}"
+        groups: robots
+
+- name: Check the variables the upstream playbook needs
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Check the common variables
+      ansible.builtin.assert:
+        that:
+          - id is defined
+          - robotont_generation in ['3', '3lite']
+        fail_msg: "robotont_id and robotont_generation must come from the inventory (inventory/robots, group_vars)."
+        quiet: true
+
+    - name: Check the variables the NUC branch needs
+      ansible.builtin.assert:
+        that:
+          - wifi_pass is defined
+          - wifi_pass | length >= 8
+        fail_msg: "Set WIFI_PASS in server/.env (8 or more characters, the WPA-PSK minimum), or -e wifi_pass=..."
+        quiet: true
+      when: robotont_generation == '3'
+
+    - name: Check the variables the Raspberry Pi branch needs
+      ansible.builtin.assert:
+        that:
+          - wifi_hotspot_password is defined
+          - wifi_hotspot_password | length >= 8
+          - wifi_client_ssid is defined
+          - wifi_client_password is defined
+        fail_msg: "Set WIFI_HOTSPOT_PASSWORD (8 or more characters), WIFI_CLIENT_SSID and WIFI_CLIENT_PASSWORD in server/.env, or pass them with -e."
+        quiet: true
+      when: robotont_generation == '3lite'
+
+# The jazzy-rpi branch assumes the Desktop image and always installs the camera stack. The patches
+# under patches/ make it tolerate missing desktop services and skip the camera when
+# robotont_camera is false. Applied on the controller to the submodule checkout, idempotently, so
+# that fresh checkouts get them too. safe.directory covers checkouts owned by another user (the
+# bind-mounted repository inside the Semaphore container).
+- name: Apply the local patches to the jazzy-rpi checkout
+  hosts: localhost
+  gather_facts: false
+  vars:
+    rpi_checkout: "{{ playbook_dir }}/../external/robotont-setup-rpi"
+    rpi_patches: "{{ query('ansible.builtin.fileglob', playbook_dir ~ '/../patches/robotont-setup-rpi/*.patch') | sort }}"
+  tasks:
+    - name: Check which patches are already applied
+      ansible.builtin.command: git -c safe.directory='*' -C {{ rpi_checkout | quote }} apply --check --reverse {{ item | quote }}
+      loop: "{{ rpi_patches }}"
+      loop_control:
+        label: "{{ item | basename }}"
+      register: patch_applied
+      changed_when: false
+      failed_when: false
+
+    - name: Apply the missing patches
+      ansible.builtin.command: git -c safe.directory='*' -C {{ rpi_checkout | quote }} apply {{ item.item | quote }}
+      loop: "{{ patch_applied.results }}"
+      loop_control:
+        label: "{{ item.item | basename }}"
+      when: item.rc != 0
+
+# Robotont 3 with Intel NUC. The `when` is inherited by every imported task.
+- import_playbook: ../external/robotont-setup/ansible/robots.yaml
+  when: robotont_generation == '3'
+
+# Robotont 3 Lite with Raspberry Pi 5.
+- import_playbook: ../external/robotont-setup-rpi/ansible/robots.yaml
+  when: robotont_generation == '3lite'

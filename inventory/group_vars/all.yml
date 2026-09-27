@@ -19,8 +19,8 @@ id: "{{ robotont_id }}"
 # The account that owns the runtime on the robot (systemd User=, docker group, workspace).
 robotont_user: peko
 
-# Container runtime (docs/07-container-runtime.md). Deploy with playbooks/deploy_runtime.yml;
-# behaviour does not change until a preset other than "host" is selected with switch_preset.yml.
+# Container runtime (docs/07-container-runtime.md). Deployed by playbooks/setup_docker.yml;
+# behaviour does not change until a preset other than "host" is selected with "3. Switch preset".
 robotont_release: "2026.09"             # robot/releases/<release>.repos, also the image tag
 robotont_image_repo: ghcr.io/robotont   # images are built locally under this name until GHCR exists
 robotont_default_preset: host           # first deploy keeps the host-installed ROS running

@@ -1,0 +1,65 @@
+---
+# Setup Docker (container runtime, docs/07): Docker Engine, /opt/robotont (presets, image
+# definitions, release files), /etc/robotont, robotont.service replacing the robotont-setup unit,
+# the metrics timer, and the robotont-ros image built on the robot when it is missing.
+# The first run keeps preset "host": nothing changes in behaviour until "4. Switch preset".
+# Not yet a Semaphore task: it becomes "3. Setup Docker" (Switch preset then "4.") once docs/08
+# Part B has passed on hardware.
+#
+#   Input: robotont_id (Robot number) of an enrolled robot.  -e rebuild=true forces the image build.
+#   CLI:   ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=123
+- name: Select the robot
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check that the robot is enrolled
+      ansible.builtin.assert:
+        that:
+          - robotont_id is defined
+          - ('robotont-' ~ robotont_id) in groups['all']
+        fail_msg: "robotont-{{ robotont_id | default('?') }} is not in the inventory. Run 1. Setup Ubuntu first."
+        quiet: true
+
+    - name: Put only this robot into the run-time group
+      ansible.builtin.add_host:
+        name: "robotont-{{ robotont_id }}"
+        groups: robots
+
+- name: Deploy the Robotont container runtime
+  hosts: robots
+  become: true
+  roles:
+    - docker
+    - robotont_presets
+
+- name: Build the robotont-ros image on the robot
+  hosts: robots
+  become: true
+  become_user: "{{ robotont_user }}"
+  vars:
+    rebuild: false
+    build_timeout: 3600
+    robotont_ros_image: "{{ robotont_image_repo }}/robotont-ros:{{ robotont_release }}"
+  tasks:
+    - name: Look for the image
+      ansible.builtin.command: docker image inspect --format '{% raw %}{{.Id}}{% endraw %}' {{ robotont_ros_image }}
+      register: image_before
+      changed_when: false
+      failed_when: false
+
+    - name: Build robotont-ros (15 to 30 minutes on a NUC, longer on a Pi; needs internet on the robot)
+      ansible.builtin.command: >-
+        docker compose --env-file /etc/robotont/robotont.env
+        -f /opt/robotont/images/compose.build.yaml build robotont-ros
+      async: "{{ build_timeout }}"
+      poll: 30
+      when: image_before.rc != 0 or rebuild | bool
+
+    - name: Show the runtime status
+      ansible.builtin.command: /usr/local/bin/robotont-preset status
+      changed_when: false
+      register: preset_status
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: image {{ robotont_ros_image }} {{ 'built' if image_before.rc != 0 or rebuild | bool else 'already present' }}\n{{ preset_status.stdout }}"

@@ -1,0 +1,7 @@
+# Enrolled by "1. Setup Ubuntu" on 2026-09-27. Delete this file to remove the robot from the fleet.
+robotont_rpi:
+  hosts:
+    robotont-123:
+      ansible_host: robotont-123.local
+      robotont_id: 123
+      robotont_camera: false

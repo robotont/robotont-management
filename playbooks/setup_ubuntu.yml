@@ -1,0 +1,91 @@
+---
+# 1. Setup Ubuntu: first contact with a freshly installed robot, and its enrolment in the fleet.
+#
+# Inputs (Semaphore dialog, or -e on the command line):
+#   robot_address    IP or DNS name Ansible reaches the robot at (192.168.1.21, robotont-123.local)
+#   robotont_id      robot number N: hostname robotont-N, ROS_DOMAIN_ID N, hotspot 192.168.200.N
+#   robot_type       "3" (Robotont 3, Intel NUC) or "3lite" (Robotont 3 Lite, Raspberry Pi 5)
+#   robotont_camera  true when the IMX500 AI camera is fitted (Lite only)
+#
+# What it does: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite,
+# NetworkManager, BlueZ, avahi, network handover); then writes inventory/robots/robotont-N.yaml.
+# Seconds on a NUC, one to two minutes on a Pi the first time. Safe to re-run.
+#
+# CLI: ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local \
+#        -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false
+- name: Enrol the robot for this run
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inputs
+      ansible.builtin.assert:
+        that:
+          - robot_address is defined and robot_address | string | length > 0
+          - robotont_id is defined and robotont_id | string is match('^[1-9][0-9]{0,2}$') and robotont_id | int <= 254
+          - robot_type is defined and robot_type | string in ['3', '3lite']
+          - robotont_camera is defined and robotont_camera | string | lower in ['true', 'false', 'yes', 'no']
+        fail_msg: "Needed: robot_address, robotont_id (1 to 254), robot_type (3 or 3lite), robotont_camera (true or false)."
+        quiet: true
+
+    - name: Add the robot to the run-time group "robots"
+      ansible.builtin.add_host:
+        name: "robotont-{{ robotont_id }}"
+        groups:
+          - robots
+          - "{{ 'robotont_rpi' if robot_type | string == '3lite' else 'robotont_nuc' }}"
+        ansible_host: "{{ robot_address }}"
+        robotont_id: "{{ robotont_id | int }}"
+        robotont_camera: "{{ robotont_camera | bool }}"
+
+- name: Check SSH login and sudo
+  hosts: robots
+  gather_facts: false
+  tasks:
+    - name: Log in over SSH
+      ansible.builtin.ping:
+      become: false
+
+    - name: Run id as root
+      ansible.builtin.command: id -un
+      become: true
+      register: whoami
+      changed_when: false
+
+    - name: Confirm that sudo works
+      ansible.builtin.assert:
+        that: whoami.stdout == 'root'
+        fail_msg: "Privilege escalation failed: check the sudo credential in Semaphore, or use -K on the command line."
+        quiet: true
+
+# Ubuntu Server (no desktop) lacks what the upstream jazzy-rpi playbook assumes. No-op once done.
+- name: Ubuntu Server prerequisites on Lite robots
+  hosts: robots
+  become: true
+  roles:
+    - role: robotont_headless
+      when: robotont_generation == '3lite' and robotont_headless | default(true) | bool
+
+- name: Record the robot in the inventory
+  hosts: robots
+  gather_facts: false
+  vars:
+    ansible_become: false        # the file is written on the controller
+    robot_file: "{{ playbook_dir }}/../inventory/robots/{{ inventory_hostname }}.yaml"
+  tasks:
+    - name: Write inventory/robots/{{ inventory_hostname }}.yaml
+      ansible.builtin.copy:
+        dest: "{{ robot_file }}"
+        mode: "0644"
+        content: |
+          # Enrolled by "1. Setup Ubuntu" on {{ '%Y-%m-%d' | strftime }}. Delete this file to remove the robot from the fleet.
+          {{ 'robotont_rpi' if robotont_generation == '3lite' else 'robotont_nuc' }}:
+            hosts:
+              {{ inventory_hostname }}:
+                ansible_host: {{ ansible_host }}
+                robotont_id: {{ robotont_id }}
+                robotont_camera: {{ robotont_camera | bool | string | lower }}
+      delegate_to: localhost
+
+    - name: Next step
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} enrolled at {{ ansible_host }}. Next: 2. Setup ROS with Robot number {{ robotont_id }}."

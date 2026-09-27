@@ -17,40 +17,53 @@ from the local clone; Semaphore runs locally from `server/compose.yaml`.
 
 ```
 robotont-management/
-├── .gitmodules                     external/robotont-setup -> robotont-setup, branch jazzy-devel-veiko
-├── ansible.cfg
-├── collections/requirements.yml    community.general (needed by the upstream ros role)
-├── external/robotont-setup/        the upstream playbooks and roles, pinned
+├── .gitmodules                     external/robotont-setup (jazzy-devel-veiko), external/robotont-setup-rpi (jazzy-rpi)
+├── ansible.cfg                     inventory = inventory (the directory)
+├── external/robotont-setup/        the upstream playbooks and roles for NUC robots, pinned
+├── external/robotont-setup-rpi/    the same repository at the Raspberry Pi branch, pinned
+├── patches/robotont-setup-rpi/     applied to the checkout at run time (desktop services, camera)
 ├── inventory/
-│   ├── hosts.yaml                  group robots, child group robotont_nuc
+│   ├── groups.yaml                 robotont_nuc, robotont_rpi, and the empty run-time group robots
+│   ├── robots/robotont-<N>.yaml    one file per enrolled robot, written by "1. Setup Ubuntu"
 │   └── group_vars/
-│       ├── robots.yml              ansible_user: peko, id: "{{ robotont_id }}"
-│       └── robotont_nuc.yml        robotont_generation: "3"
+│       ├── all.yml                 ansible_user: peko, id: "{{ robotont_id }}", runtime defaults
+│       ├── robotont_nuc.yml        robotont_generation: "3"
+│       └── robotont_rpi.yml        robotont_generation: "3lite", ansible_become, jazzy-rpi variables
 ├── playbooks/
-│   ├── provision.yml               preflight, then the upstream robots.yaml
-│   ├── setup_service.yml           the upstream robotont_service.yaml
-│   ├── test_connection.yml         submodule and collection check, upstream ping, sudo check
-│   ├── healthcheck.yml             read-only report and assert
-│   ├── reboot.yml
-│   └── restart_services.yml
+│   ├── setup_ubuntu.yml            1. SSH and sudo check, Ubuntu Server prerequisites, enrolment
+│   ├── setup_ros.yml               2. preflight, patches, then the upstream robots.yaml
+│   ├── switch_preset.yml           3. container runtime (docs/07)
+│   ├── setup_docker.yml            container runtime deploy and image build (command line until tested)
+│   └── status.yml                  read-only report of every enrolled robot (command line, until Grafana)
+├── roles/robotont_headless/        Ubuntu Server prerequisites for Lite robots
 ├── server/
-│   ├── compose.yaml                Semaphore v2.19.14, BoltDB, 127.0.0.1:3000
-│   └── .env.example                admin credentials, key-store encryption
+│   ├── compose.yaml                Semaphore v2.19.14, embedded SQLite, 127.0.0.1:3000, automatic bootstrap
+│   ├── bootstrap.py, templates.json
+│   └── .env.example                robot-side values only
 └── docs/
 ```
 
 ## How it works
 
-- `playbooks/provision.yml` checks the required variables, then imports
-  `external/robotont-setup/ansible/robots.yaml` unchanged. Roles, templates and files resolve
-  relative to the imported playbook (verified with ansible-core 2.21.3), so upstream needs no edits.
-- The inventory keeps the upstream group name `robots` and maps this repository's `robotont_id` to
-  the upstream variable `id` in `inventory/group_vars/robots.yml`.
-- `robotont_generation` (group_vars, `"3"` for NUC robots) selects which upstream branch runs. The
-  `when` on the import is inherited by every imported task, so a host of another generation is
-  skipped rather than provisioned with the wrong branch.
+- `playbooks/setup_ros.yml` checks the required variables, then imports the upstream
+  `robots.yaml` unchanged. Roles, templates and files resolve relative to the imported playbook
+  (verified with ansible-core 2.21.3), so upstream needs no edits.
+- The upstream playbooks target the group `robots`. On disk that group is empty
+  (`inventory/groups.yaml`); the setup playbooks put exactly the robot named by `robotont_id` into
+  it with `add_host` at run time, so an upstream run can never reach the rest of the fleet. The
+  host inherits its generation group's variables (verified with ansible-core 2.21.3).
+- `robotont_id` maps to the upstream variable `id` in `inventory/group_vars/all.yml`.
+- `robotont_generation` (group_vars, `"3"` for NUC robots, `"3lite"` for Pi robots) selects which
+  upstream branch runs. The `when` on the import is inherited by every imported task, so a host
+  of another generation is skipped rather than provisioned with the wrong branch.
+- `playbooks/setup_ubuntu.yml` is the first contact: SSH and sudo check, the headless role on Lite
+  robots, and the enrolment file `inventory/robots/robotont-N.yaml`.
 - Secrets live in Semaphore: the SSH key and peko's sudo password in the key store, `wifi_pass` in
   an environment. The inventory holds no key paths or passwords.
+- The upstream `ros` role needs the `community.general` collection (`locale_gen`). The Semaphore
+  image ships it; on another machine run `ansible-galaxy collection install community.general`
+  once. The repository keeps no `requirements.yml` on purpose: Semaphore would auto-install it
+  from Galaxy on every task.
 
 ## The submodule
 
@@ -70,7 +83,7 @@ robotont-management/
 
 Added on 2026-09-26 for the first robot at hand. Lite robots use the second submodule
 `external/robotont-setup-rpi` (branch `jazzy-rpi`, commit `77a5ec5`), the inventory group
-`robotont_rpi` with `robotont_generation: "3lite"`, and the same `provision.yml`, which imports
+`robotont_rpi` with `robotont_generation: "3lite"`, and the same `setup_ros.yml`, which imports
 the matching upstream playbook per generation.
 
 Two things differ from a robot installed from the Ubuntu Desktop image:
@@ -80,16 +93,17 @@ Two things differ from a robot installed from the Ubuntu Desktop image:
   cloud-init network config disabled), which is what the upstream Wi-Fi setup needs. It is a
   no-op on a Desktop install; set `robotont_headless: false` to skip it.
 - The upstream task that disables desktop services (cups, whoopsie, speech-dispatcher,
-  accounts-daemon) fails on Server because the units do not exist. The patch in
-  `patches/robotont-setup-rpi/` makes it tolerate missing units; `provision.yml` applies it to
-  the submodule checkout on the controller before the import (idempotent, also on Semaphore's
-  fresh checkouts). It is the first candidate for an upstream pull request.
+  accounts-daemon) fails on Server because the units do not exist. The first patch in
+  `patches/robotont-setup-rpi/` makes it tolerate missing units; the second skips the IMX500
+  camera stack unless `robotont_camera` is true (the Camera field of "1. Setup Ubuntu").
+  `setup_ros.yml` applies both to the submodule checkout on the controller before the import
+  (idempotent, also on Semaphore's fresh checkouts). Both are candidates for an upstream pull request.
 
 The upstream README runs the Pi branch with `-K -b`; `inventory/group_vars/robotont_rpi.yml`
 sets `ansible_become: true` for the group instead, so no extra flag is needed.
 
-Lite robots without the IMX500 camera run Provision with `--skip-tags camera`; the camera tasks
-build libcamera and need the custom kernel from `robotont_kernel/`.
+Lite robots without the IMX500 camera are enrolled with Camera = no; the camera tasks build
+libcamera and need the custom kernel from `robotont_kernel/`.
 
 Variables the Pi branch needs, provided by the Semaphore environment or `-e`: `wifi_hotspot_password`,
 `wifi_client_ssid`, `wifi_client_password`. Run over Ethernet: the playbook activates the client
@@ -98,35 +112,38 @@ Wi-Fi profile and the hotspot, which drops a Wi-Fi session.
 ## Running from the command line
 
 ```
-ansible-playbook playbooks/test_connection.yml -K
-ansible-playbook playbooks/healthcheck.yml -K
-ansible-playbook playbooks/provision.yml -K -e wifi_pass=<hotspot password> --limit robotont-1
-# Raspberry Pi without camera:
-ansible-playbook playbooks/provision.yml -K --limit robotont-123 --skip-tags camera \
+# NUC robot, number 1
+ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=192.168.1.21 -e robotont_id=1 -e robot_type=3 -e robotont_camera=false
+ansible-playbook playbooks/setup_ros.yml -K -e robotont_id=1 -e wifi_pass=<hotspot password>
+# Raspberry Pi without camera, number 123
+ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false
+ansible-playbook playbooks/setup_ros.yml -K -e robotont_id=123 \
   -e wifi_hotspot_password=<hotspot password> -e wifi_client_ssid=<lab ssid> -e wifi_client_password=<lab password>
+ansible-playbook playbooks/status.yml -K        # read-only report of every enrolled robot
 ```
 
-`-K` asks for peko's sudo password. `ansible.cfg` points at `inventory/hosts.yaml`.
+`-K` asks for peko's sudo password. `ansible.cfg` points at the directory `inventory/`.
 
 ## Running from Semaphore
 
-See [semaphore-setup.md](semaphore-setup.md): start the container, register the repository, the
-inventory file, the two credentials and the environment, then run "Test connection" before anything else.
+See [semaphore-setup.md](semaphore-setup.md): `docker compose -f server/compose.yaml up -d` creates
+the project, keys, repository, inventory, environment and the three tasks from `server/.env`. Run
+"1. Setup Ubuntu", then "2. Setup ROS".
 
 ## Selecting robots and the generation
 
-- Which robots: `--limit robotont-1` (allowed as a CLI argument override on the Semaphore template).
-- Which generation: `robotont_generation` per inventory group. The next iteration adds
-  `external/robotont-setup-rpi` (branch `jazzy-rpi`), the group `robotont_rpi` with
-  `robotont_generation: "3lite"`, a second import in `provision.yml`, and a Semaphore survey
-  variable so the value can be chosen when a task is started.
+- Which robot: the Robot number field of the dialog (`-e robotont_id=N` on the command line). A
+  setup task always runs on one robot.
+- Which generation: the Robot type field of "1. Setup Ubuntu" puts the robot into `robotont_nuc`
+  or `robotont_rpi`; `robotont_generation` comes from that group's variables and `setup_ros.yml`
+  imports the matching upstream playbook. No per-run choice afterwards.
 
 ## What v1 knowingly keeps
 
-- **Not idempotent.** Every Provision run upgrades all apt packages, wipes and rebuilds the ROS
-  workspace and fetches from GitHub. Provision is a reinstall, not an update. Health Check is the
-  only task that is safe to repeat at any time.
-- **Reboot at the end** of the upstream role, with errors ignored. Follow a Provision with a Health Check.
+- **Not idempotent.** Every "2. Setup ROS" run upgrades all apt packages, wipes and rebuilds the
+  ROS workspace and fetches from GitHub. It is a reinstall, not an update. "1. Setup Ubuntu" and
+  `status.yml` are safe to repeat at any time.
+- **Reboot at the end** of the upstream role, with errors ignored. Follow "2. Setup ROS" with `status.yml`.
 - **Hotspot switch.** `netplan apply` turns the Wi-Fi interface into the hotspot `robotont-<id>`;
   provisioning over Wi-Fi cuts the session. Use Ethernet.
 - **Deprecated `apt_key`** in the upstream ros role: fine with ansible-core 2.21 on Ubuntu 24.04,
@@ -160,3 +177,5 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part A.
 | 2026-09-26 | robotont-123 | provision.yml `--skip-tags camera` | aborted by hand at the headless role's wait step: NetworkManager gave up on wlan0 (old wpa_supplicant held it) and eth0 got a new DHCP lease; role reordered (apply, then restart NetworkManager; avahi added; address by name). Upstream playbook not yet reached. Re-test per docs/08 |
 | 2026-09-26 | robotont-123 (after reboot: NetworkManager owns eth0 and wlan0) | test_connection, then provision.yml `--skip-tags camera` | test_connection green; provision reached the upstream ros role and failed at `Install ROS (jazzy-desktop)`: apt "held broken packages", the image lacks the `noble-updates` suite. Headless role extended to add it. Re-run follows |
 | 2026-09-26 | robotont-123 | provision.yml `--skip-tags camera` (re-run) | **green**: ok=68 changed=35 failed=0 in 18 min 41 s, reboot included. Afterwards: `robotont.service` active (NRestarts 0), hostname `robotont-123`, ROS graph on domain 123 with namespace `rt123` (`odom`, `battery_state`, `scan`, `joy`, `range_*`), udev rule in place, `peko` in dialout/input/video, `bluetoothctl` present, hotspot profile `robotont-123-hotspot` (priority -1) and client profile for the lab Wi-Fi (priority 100) active, 47 GB free. Health check green in report mode. Without hardware: driver retries `/dev/ttyACM0` once per second, `camera_node` respawns every 3 s ("no cameras available") because the upstream service template hard-codes `camera:=true`. Deployed commits captured in `robot/releases/2026.09-lite.repos` |
+| 2026-09-26 | robotont-123 | Semaphore UI (user): Test connection, Health Check | **red**: the CLI Args field takes one argument per entry, so `--limit robotont-123` became a single token and Ansible looked for a playbook of that name. Fix: the bootstrap now enables Semaphore's own Limit, Tags, Skip Tags and Debug fields on every template (`task_params`) and adds survey dropdowns (`healthcheck_strict`, `preset`); the inventory lists real robots only so Limit may stay empty. Re-verified through the API with Limit `robotont-123` (Test connection ok=7) and the survey answer no (Health Check ok=11, 3 skipped) |
+| 2026-09-26 | robotont-123 | Semaphore reduced to three dialog-driven tasks (user decision: simplicity, no status/restart/reboot tasks; Grafana later). `1. Setup Ubuntu` (address, number, type, camera), then `3. Switch preset` guard, then `2. Setup ROS` (number), all through the Semaphore API | **green**: Setup Ubuntu ok=16 (headless role no-op, enrolment file written from inside the container, proven by deleting and re-enrolling); Switch preset fails as intended with "no container runtime yet"; Setup ROS ok=53 changed=16 skipped=67 in 6 min (the run-time `robots` group held only robotont-123; camera tasks skipped by patch 0002 through `robotont_camera: false` instead of `--skip-tags`; reboot done). `status.yml` from the Mac afterwards: service active, hostname `robotont-123` |

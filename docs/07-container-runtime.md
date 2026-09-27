@@ -33,7 +33,7 @@ the design plus the D1 files, verified statically.
   removes the previous preset's containers, and fixed container names (`robotont-driver`) make two
   drivers impossible. A preset may contain several containers.
 - **Switching** is `robotont-preset switch <name>`: validate, write the word, restart the unit.
-  Semaphore runs it through `playbooks/switch_preset.yml` with the survey variable `preset`.
+  Semaphore runs it through `playbooks/switch_preset.yml` (task "3. Switch preset": Robot number, Preset).
   Deploys never reset the preset; it is operational state, written only on the first deploy
   (`robotont_default_preset: host`).
 - **Restarts.** Containers use `restart: unless-stopped`, so a crashing driver is back in seconds
@@ -59,10 +59,9 @@ the design plus the D1 files, verified statically.
 | `robot/bin/robotont-preset`, `robotont-metrics`, `robotont-status` | `/usr/local/bin/` | switch and run, metrics and status |
 | `roles/docker` | | Docker Engine and Compose plugin from Docker's apt repository, `daemon.json` (journald logging, live-restore, metrics on 127.0.0.1:9323), `peko` in group `docker` |
 | `roles/robotont_presets` | `/etc/robotont/`, `/etc/systemd/system/robotont.service`, `/etc/sudoers.d/robotont-preset`, metrics timer | the runtime itself |
-| `playbooks/deploy_runtime.yml` | | Semaphore "Deploy runtime" |
-| `playbooks/switch_preset.yml` | | Semaphore "Switch preset" (survey variable `preset`, `--limit`) |
-| `playbooks/build_images.yml` | | Semaphore "Build images" (long) |
-| `playbooks/healthcheck.yml` | | extended: preset, containers, declared devices |
+| `playbooks/setup_docker.yml` | | Docker, presets, unit, then the image build when it is missing; command line until hardware-tested, then Semaphore "3. Setup Docker" |
+| `playbooks/switch_preset.yml` | | Semaphore "3. Switch preset" (Robot number, Preset) |
+| `playbooks/status.yml` | | read-only report, preset-aware: containers, declared devices |
 
 ## Images
 
@@ -74,7 +73,7 @@ the design plus the D1 files, verified statically.
 The tag is the release name (`robotont_release` in `group_vars`, `ROBOTONT_RELEASE` in the env
 file). Images are named as they will be on GHCR, so presets do not change when the registry
 arrives (Phase D4, GitHub Actions on `ubuntu-24.04` and `ubuntu-24.04-arm` runners, then
-`pull_images.yml`). Until then `build_images.yml` builds on each robot; the same tag can differ
+`pull_images.yml`). Until then `setup_docker.yml` builds on each robot; the same tag can differ
 slightly between robots built on different days, and the health check shows the image id.
 
 Lite robots use `2026.09-lite.repos`, read back from the first provisioned Pi with `vcs export --exact`
@@ -86,25 +85,20 @@ in [05](05-implementation-plan.md) section 4.
 
 ## Runbook
 
-**Deploy** (first time on an adopted robot, no behaviour change):
+**Deploy** (first time on an adopted robot, no behaviour change; the image build needs network
+on the robot and 15 to 30 minutes):
 
 ```
-ansible-playbook playbooks/deploy_runtime.yml --limit robotont-1 -K
+ansible-playbook playbooks/setup_docker.yml -K -e robotont_id=1
 robotont-status            # on the robot: preset host, service active, containers none
-```
-
-**Build the runtime image** (network on the robot, 15 to 30 minutes):
-
-```
-ansible-playbook playbooks/build_images.yml --limit robotont-1 -K
 ```
 
 **Switch** to the container bringup, and back:
 
 ```
-ansible-playbook playbooks/switch_preset.yml -e preset=driver --limit robotont-1 -K
-ansible-playbook playbooks/healthcheck.yml --limit robotont-1 -K
-ansible-playbook playbooks/switch_preset.yml -e preset=host --limit robotont-1 -K     # rollback
+ansible-playbook playbooks/switch_preset.yml -K -e robotont_id=1 -e preset=driver
+ansible-playbook playbooks/status.yml -K
+ansible-playbook playbooks/switch_preset.yml -K -e robotont_id=1 -e preset=host     # rollback
 ```
 
 On the robot itself (as peko): `robotont-preset switch driver`, `robotont-preset status`,
@@ -112,7 +106,7 @@ On the robot itself (as peko): `robotont-preset switch driver`, `robotont-preset
 
 **Add a demo**: copy `robot/presets/demo-example` to `robot/presets/demo-<name>`, edit the extra
 services (same image, another `command:`, or a `demo-<name>` image added to
-`compose.build.yaml`), declare `robotont.devices`, write a `README.md`, run `deploy_runtime.yml`,
+`compose.build.yaml`), declare `robotont.devices`, write a `README.md`, run `setup_docker.yml`,
 then switch. Validate locally first:
 
 ```
@@ -124,15 +118,11 @@ ROBOTONT_ROOT=robot ROBOTONT_ENV_FILE=test/robotont.env robot/bin/robotont-prese
 known-good workspace), set `robotont_release` in `group_vars`, deploy, build, switch (a switch
 recreates containers whose image changed).
 
-## Semaphore templates to add
+## Semaphore tasks
 
-| Template | Playbook | Notes |
-|---|---|---|
-| Deploy runtime | `playbooks/deploy_runtime.yml` | idempotent; first run selects preset `host` |
-| Build images | `playbooks/build_images.yml` | long; `--limit` one robot at a time |
-| Switch preset | `playbooks/switch_preset.yml` | survey variable `preset`; `--limit robotont-N` |
-
-"Health Check", "Restart services" and "Reboot" from v1 keep working unchanged.
+"3. Switch preset" exists today (Robot number, Preset). `setup_docker.yml` becomes "3. Setup
+Docker" (Robot number) once Part B of [08](08-hardware-test-guide.md) has passed, and Switch
+preset moves to 4. Both run on exactly one robot; there is no fleet-wide switch.
 
 ## Monitoring hooks
 

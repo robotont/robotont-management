@@ -38,5 +38,4 @@ robotont-status                  # report from robotont-metrics (also inside con
 journalctl -u robotont -f        # logs of the active preset
 ```
 
-From Semaphore: task "Switch preset" with the survey variable `preset`, limited to one robot with
-`--limit robotont-N`.
+From Semaphore: task "3. Switch preset" with the dialog fields Robot number and Preset.

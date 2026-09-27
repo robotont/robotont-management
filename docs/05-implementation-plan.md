@@ -5,6 +5,12 @@
 > replaces decision 3 below for now. The milestones of this document become the later phases of
 > the roadmap in 06, and `group_vars/robotonts.yml` is `group_vars/robots.yml` (the upstream
 > group name).
+>
+> **Update 2026-09-26.** Semaphore carries three numbered tasks only (1. Setup Ubuntu, 2. Setup
+> ROS, 3. Switch preset; [semaphore-setup.md](semaphore-setup.md)); status and health are left
+> to Prometheus and Grafana (Milestone 3). The inventory is the directory `inventory/` with
+> `groups.yaml`, `group_vars/all.yml` and one file per enrolled robot under `robots/`, written by
+> "1. Setup Ubuntu". Template and playbook names in this document are the original plan.
 
 ## 1. Decisions and assumptions
 
@@ -144,7 +150,7 @@ are meant to be separate commits.
 
 ### Step 8. Semaphore on the management server
 
-- `server/compose.yaml` with `semaphoreui/semaphore` and the BoltDB backend (a single file, no
+- `server/compose.yaml` with `semaphoreui/semaphore` and the embedded SQLite database (a single file, no
   database container), volumes for data and for the fleet SSH key.
 - `docs/semaphore.md`: how to register the repository, the inventory file, the `fleet-admin`
   key, and one task template per playbook (Provision Robotont, Update Software, Update OS

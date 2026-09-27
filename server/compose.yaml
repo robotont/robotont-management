@@ -1,10 +1,16 @@
-# Semaphore UI for the Robotont fleet (v1: runs on the maintainer's machine).
+# Semaphore for the Robotont fleet, configured automatically.
 #
-#   cp server/.env.example server/.env      # then edit the admin credentials and the encryption key
-#   docker compose -f server/compose.yaml --env-file server/.env up -d
-#   open http://localhost:3000
+#   cp server/.env.example server/.env    # robot-side values only: SSH key path, sudo password, Wi-Fi
+#   docker compose -f server/compose.yaml up -d
+#   open http://localhost:3000            # admin / admin
 #
-# The image tag is pinned. Upgrading Semaphore is a deliberate change here, never `latest`.
+# The "bootstrap" service runs once after Semaphore is healthy and creates or updates the project,
+# the key store, the repository, the inventory, the environment and the task templates from
+# server/.env and server/templates.json (idempotent: run `up -d` again after editing them).
+#
+# Security model: local machine or the UT private network only. Admin credentials are fixed and
+# the key store is not encrypted at rest. Set SEMAPHORE_BIND=0.0.0.0 in .env to serve the LAN.
+# The image tag is pinned; upgrading Semaphore is a deliberate change here, never `latest`.
 name: robotont
 
 services:
@@ -13,21 +19,48 @@ services:
     container_name: robotont-semaphore
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${SEMAPHORE_BIND:-127.0.0.1}:3000:3000"
+    environment:
+      SEMAPHORE_DB_DIALECT: sqlite          # embedded single-file database under /var/lib/semaphore
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_PASSWORD: admin
+      SEMAPHORE_ADMIN_NAME: admin
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+      TZ: Europe/Tallinn
+    volumes:
+      - semaphore_data:/var/lib/semaphore      # database and key store
+      - semaphore_config:/etc/semaphore        # config.json generated on first start
+      - semaphore_tmp:/tmp/semaphore           # task workspaces
+      # Local repository (docs/semaphore-setup.md): this working tree, including the submodules,
+      # is used directly. Remove the line when Semaphore clones from GitHub instead.
+      - ..:/repositories/robotont-management
+    extra_hosts:
+      # mDNS does not resolve inside the container; map the robots' .local names to their addresses
+      # (or use DHCP reservations and addresses in the inventory).
+      - "robotont-123.local:192.168.88.68"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  bootstrap:
+    image: semaphoreui/semaphore:v2.19.14
+    container_name: robotont-semaphore-bootstrap
+    depends_on:
+      semaphore:
+        condition: service_healthy
+    restart: "no"
     env_file:
       - .env
     environment:
-      SEMAPHORE_DB_DIALECT: bolt
-      SEMAPHORE_DB_HOST: /var/lib/semaphore/database.boltdb
-      TZ: Europe/Tallinn
+      SEMAPHORE_URL: http://semaphore:3000
+      TEMPLATES_FILE: /bootstrap/templates.json
     volumes:
-      - semaphore_data:/var/lib/semaphore      # BoltDB database and key store
-      - semaphore_config:/etc/semaphore        # config.json generated on first start
-      - semaphore_tmp:/tmp/semaphore           # repository checkouts and task workspaces
-      # Fallback if Semaphore's git checkout does not initialise submodules (docs/semaphore-setup.md):
-      # mount this working tree and register the repository as the local path
-      # /repositories/robotont-management.
-      # - ..:/repositories/robotont-management
+      - ./bootstrap.py:/bootstrap/bootstrap.py:ro
+      - ./templates.json:/bootstrap/templates.json:ro
+      - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
+    entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 
 volumes:
   semaphore_data:

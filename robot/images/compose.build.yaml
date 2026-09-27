@@ -1,4 +1,4 @@
-# Image build definitions. Used by playbooks/build_images.yml on the robots (native architecture,
+# Image build definitions. Used by playbooks/setup_docker.yml on the robots (native architecture,
 # no registry needed) and later by GitHub Actions. Presets reference the images by name only, so
 # nothing changes there when images start coming from GHCR.
 #

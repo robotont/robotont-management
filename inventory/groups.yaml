@@ -1,0 +1,18 @@
+# Static groups of the Robotont fleet. Robots are not listed here: "1. Setup Ubuntu" enrols each
+# robot as one file under inventory/robots/ (delete the file to remove the robot).
+#
+#   robotont_nuc  Robotont 3, Intel NUC          -> external/robotont-setup     (jazzy-devel-veiko)
+#   robotont_rpi  Robotont 3 Lite, Raspberry Pi 5 -> external/robotont-setup-rpi (jazzy-rpi)
+#   robots        the group the upstream playbooks target. Empty on disk: the setup tasks put
+#                 exactly the robot being set up into it at run time, so an upstream run can never
+#                 touch the rest of the fleet.
+#
+# Variables per group live in group_vars/. No locations, owners or lifecycle data here.
+all:
+  children:
+    robotont_nuc:
+      hosts: {}
+    robotont_rpi:
+      hosts: {}
+    robots:
+      hosts: {}

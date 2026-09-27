@@ -1,0 +1,28 @@
+[
+  {"name": "1. Setup Ubuntu", "playbook": "playbooks/setup_ubuntu.yml",
+   "description": "First contact with a freshly installed robot: SSH and sudo check, Ubuntu prerequisites (Lite robots), enrolment in the inventory. Seconds to 2 minutes. Safe to re-run.",
+   "survey_vars": [
+     {"name": "robot_address", "title": "Robot address", "type": "", "required": true,
+      "description": "IP or DNS name, for example 192.168.1.21 or robotont-123.local"},
+     {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true,
+      "description": "1 to 254: becomes hostname robotont-N, ROS_DOMAIN_ID N and hotspot 192.168.200.N"},
+     {"name": "robot_type", "title": "Robot type", "type": "enum", "required": true,
+      "values": [{"name": "Robotont 3 Lite (Raspberry Pi 5)", "value": "3lite"},
+                 {"name": "Robotont 3 (Intel NUC)", "value": "3"}]},
+     {"name": "robotont_camera", "title": "Camera", "type": "enum", "required": true, "default_value": "false",
+      "description": "IMX500 AI camera fitted (Lite robots only)",
+      "values": [{"name": "no", "value": "false"}, {"name": "yes", "value": "true"}]}]},
+  {"name": "2. Setup ROS", "playbook": "playbooks/setup_ros.yml",
+   "description": "Upstream robotont-setup on one enrolled robot: ROS 2 Jazzy, workspace build, hostname, Wi-Fi hotspot, robotont.service, reboot. 20 to 60 minutes, robot on Ethernet.",
+   "survey_vars": [
+     {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true,
+      "description": "a robot enrolled by 1. Setup Ubuntu"}]},
+  {"name": "3. Switch preset", "playbook": "playbooks/switch_preset.yml",
+   "description": "Container runtime (docs/07): activate a preset on one robot. Needs playbooks/setup_docker.yml on that robot first.",
+   "survey_vars": [
+     {"name": "robotont_id", "title": "Robot number", "type": "int", "required": true},
+     {"name": "preset", "title": "Preset", "type": "enum", "required": true,
+      "description": "host = ROS installed on the robot; the others run in containers",
+      "values": [{"name": "host", "value": "host"}, {"name": "driver", "value": "driver"},
+                 {"name": "test-talker", "value": "test-talker"}, {"name": "demo-example", "value": "demo-example"}]}]}
+]
