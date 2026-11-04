@@ -35,8 +35,11 @@ services:
       # is used directly. Remove the line when Semaphore clones from GitHub instead.
       - ..:/repositories/robotont-management
     # Robot names: the container's resolver forwards to the Docker host's resolver. On Docker
-    # Desktop (macOS) that resolves .local names through mDNS, so no mapping is needed. On a
-    # Linux server without mDNS, add extra_hosts here or use DHCP reservations and DNS.
+    # Desktop (macOS) that resolves .local names through mDNS, so no mapping is needed. On Linux
+    # (Docker Engine) mDNS is not available in the container: give "1. Setup Ubuntu" the robot's
+    # IP address (a DHCP reservation keeps it stable), add extra_hosts here, or use real DNS.
+    # The repository is written from the container (enrolment files), so on Linux give its
+    # user access: setfacl -R -m u:1001:rwX . && find . -type d -exec setfacl -m d:u:1001:rwX {} +
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/api/ping"]
       interval: 5s
@@ -50,6 +53,10 @@ services:
       semaphore:
         condition: service_healthy
     restart: "no"
+    # Root inside the one-shot bootstrap: on Linux a bind mount keeps the host owner and mode of
+    # the 0600 SSH key, which the image's non-root user (uid 1001) cannot read. Docker Desktop on
+    # macOS hid this. The bootstrap only reads files and talks to the Semaphore API.
+    user: "0:0"
     env_file:
       - .env
     environment:

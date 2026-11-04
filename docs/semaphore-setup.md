@@ -84,6 +84,32 @@ docker compose -f server/compose.yaml run --rm -T bootstrap run "3. Switch works
 `playbooks/status.yml` (read-only report of every enrolled robot) runs from the command line only:
 `ansible-playbook playbooks/status.yml -K`.
 
+## Linux host (Docker Engine, not Docker Desktop)
+
+Verified 2026-11-04 on Ubuntu 24.04 with Docker Engine 29. Three differences from macOS:
+
+- The `bootstrap` service runs as root (`user: "0:0"` in `server/compose.yaml`): a bind mount keeps
+  the host owner and `0600` mode of the SSH key, which the image's user (uid 1001) cannot read.
+- The container writes the enrolment file into the bind-mounted repository as uid 1001. Give it
+  access once, from the repository root (files stay owned by you; ACLs are invisible to git):
+  `setfacl -R -m u:1001:rwX . && find . -type d -exec setfacl -m d:u:1001:rwX {} +`
+- `robotont-N.local` does not resolve inside the container (no mDNS in Docker's resolver). Give
+  "1. Setup Ubuntu" the robot's IP address as the Robot address; the enrolment file then carries
+  the IP, so keep it stable (DHCP reservation) or re-run Setup Ubuntu after it changes. The
+  laptop itself still resolves `.local` through avahi (`nss-mdns`), so `ansible-playbook` from a
+  terminal can use the name.
+
+Bench setup, robot on a cable straight into the laptop (NetworkManager connection in `shared`
+mode, laptop `10.42.0.1`): NetworkManager inserts `REJECT` rules for forwarded traffic to the
+shared interface that does not come from its subnet, above Docker's rules, so the Semaphore
+container cannot reach the robot although the laptop can ("Connection refused" in the task log).
+Allow it for the session (not persistent; `enp0s31f6` is the shared interface, `br-+` matches
+the bridge of every compose network, `docker0` alone is not enough):
+
+```
+sudo iptables -I FORWARD 1 -i br-+ -o enp0s31f6 -j ACCEPT
+```
+
 ## Notes
 
 - Semaphore auto-installs any `requirements.yml` it finds in the repository from Ansible Galaxy
