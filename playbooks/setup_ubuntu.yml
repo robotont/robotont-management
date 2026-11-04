@@ -28,7 +28,9 @@
           - robotont_id is defined and robotont_id | string is match('^[1-9][0-9]{0,2}$') and robotont_id | int <= 254
           - robot_type is defined and robot_type | string in ['3', '3lite']
           - robotont_camera is defined and robotont_camera | string | lower in ['true', 'false', 'yes', 'no']
-        fail_msg: "Needed: robot_address, robotont_id (1 to 254), robot_type (3 or 3lite), robotont_camera (true or false)."
+        fail_msg: >-
+          Needed: robot_address, robotont_id (1 to 254), robot_type (3 or 3lite),
+          robotont_camera (true or false).
         quiet: true
 
     - name: Add the robot to the run-time group "robots"
@@ -86,12 +88,13 @@
     ansible_become: false        # the file is written on the controller
     robot_file: "{{ playbook_dir }}/../inventory/robots/{{ inventory_hostname }}.yaml"
   tasks:
-    - name: Write inventory/robots/{{ inventory_hostname }}.yaml
+    - name: Write the enrolment file inventory/robots/robotont-N.yaml for {{ inventory_hostname }}
       ansible.builtin.copy:
         dest: "{{ robot_file }}"
         mode: "0644"
         content: |
-          # Enrolled by "1. Setup Ubuntu" on {{ '%Y-%m-%d' | strftime }}. Delete this file to remove the robot from the fleet.
+          # Enrolled by "1. Setup Ubuntu" on {{ '%Y-%m-%d' | strftime }}.
+          # Delete this file to remove the robot from the fleet.
           {{ 'robotont_rpi' if robotont_generation == '3lite' else 'robotont_nuc' }}:
             hosts:
               {{ inventory_hostname }}:
@@ -110,4 +113,6 @@
 
     - name: Next step
       ansible.builtin.debug:
-        msg: "{{ inventory_hostname }} enrolled at {{ ansible_host }}. Next: 2. Deploy with Robot number {{ robotont_id }}."
+        msg: >-
+          {{ inventory_hostname }} enrolled at {{ ansible_host }}.
+          Next: 2. Deploy with Robot number {{ robotont_id }}.

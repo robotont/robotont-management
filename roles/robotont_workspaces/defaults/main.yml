@@ -27,7 +27,10 @@ robotont_ros_domain_id: "{{ robotont_id }}"
 robotont_host_ws: "/home/{{ robotont_user }}/ros2_ws"
 robotont_driver_devices: "mainboard,gamepad"
 robotont_bringup_args: >-
-  generation:={{ robotont_generation }} realsense:={{ robotont_realsense | string | lower }}{% if robotont_generation == '3lite' %} namespace:={{ robotont_namespace }} lidar:={{ robotont_lidar | string | lower }} camera:={{ robotont_camera | string | lower }} slam:={{ robotont_slam | string | lower }}{% endif %}
+  generation:={{ robotont_generation }}
+  realsense:={{ robotont_realsense | string | lower }}{% if robotont_generation == '3lite' %}
+  namespace:={{ robotont_namespace }} lidar:={{ robotont_lidar | string | lower }}
+  camera:={{ robotont_camera | string | lower }} slam:={{ robotont_slam | string | lower }}{% endif %}
 
 # Monitoring hooks.
 robotont_metrics_interval: 15s

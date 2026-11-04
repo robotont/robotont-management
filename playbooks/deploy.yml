@@ -35,6 +35,7 @@
   post_tasks:
     - name: Show the runtime status
       ansible.builtin.command: /usr/local/bin/robotont-workspace status
+      become: true
       become_user: "{{ robotont_user }}"
       changed_when: false
       register: workspace_status

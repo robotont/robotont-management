@@ -90,6 +90,7 @@
 # output means an image of the active workspace changed, so the unit must be restarted.
 - name: Pull the images of every workspace (GHCR; the robot needs internet)
   ansible.builtin.command: /usr/local/bin/robotont-workspace pull
+  become: true
   become_user: "{{ robotont_user }}"
   register: image_pull
   changed_when: "'updated' in image_pull.stdout"
@@ -103,7 +104,9 @@
   when: robotont_pull_images | bool
 
 - name: Look for the robotont-ros image
-  ansible.builtin.command: docker image inspect --format '{% raw %}{{.Id}}{% endraw %}' {{ robotont_image_repo }}/robotont-ros:{{ robotont_release }}
+  ansible.builtin.command: >-
+    docker image inspect --format '{% raw %}{{.Id}}{% endraw %}'
+    {{ robotont_image_repo }}/robotont-ros:{{ robotont_release }}
   register: ros_image
   changed_when: false
   failed_when: false
@@ -114,6 +117,7 @@
   ansible.builtin.command: >-
     docker compose --env-file /etc/robotont/robotont.env
     -f {{ robotont_root }}/images/compose.build.yaml build robotont-ros
+  become: true
   become_user: "{{ robotont_user }}"
   async: "{{ robotont_build_timeout }}"
   poll: 30

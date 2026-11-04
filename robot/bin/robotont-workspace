@@ -106,6 +106,7 @@ pull() {  # pull [workspace]: every workspace, or just the one named
   if [ $# -ge 1 ]; then workspace_dir "$1" > /dev/null; names="$1"; else names="$(list)"; fi
   active="$(current)"
   tmp="$(mktemp)"
+  # shellcheck disable=SC2046  # one image reference per word is intended
   before="$(image_ids $(images_of "$active" 2>/dev/null))"
   for name in $names; do
     dir="$WORKSPACES/$name"
@@ -118,10 +119,12 @@ pull() {  # pull [workspace]: every workspace, or just the one named
     fi
   done
   rm -f "$tmp"
+  # shellcheck disable=SC2046
   after="$(image_ids $(images_of "$active" 2>/dev/null))"
   if [ "$before" != "$after" ]; then echo "updated: images of the active workspace '$active' changed"; fi
   for name in $names; do
     [ -f "$WORKSPACES/$name/compose.yaml" ] || continue
+    # shellcheck disable=SC2046
     while read -r img id; do
       [ -n "$img" ] || continue
       if [ "$id" = missing ]; then echo "missing: $img (workspace '$name')"; missing=1; fi

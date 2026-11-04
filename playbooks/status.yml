@@ -59,7 +59,8 @@
     - name: Determine the runtime mode
       ansible.builtin.set_fact:
         robotont_runtime_deployed: "{{ workspace_file.content is defined }}"
-        robotont_workspace_active: "{{ (workspace_file.content | b64decode | trim) if workspace_file.content is defined else 'host' }}"
+        robotont_workspace_active: >-
+          {{ (workspace_file.content | b64decode | trim) if workspace_file.content is defined else 'host' }}
 
     - name: Determine whether containers are expected
       ansible.builtin.set_fact:
@@ -70,6 +71,7 @@
         path: /dev/robotont
       register: mainboard
 
+    # yamllint disable rule:line-length
     - name: Read the containers of the robotont compose project
       ansible.builtin.command: >-
         docker ps -a --filter label=com.docker.compose.project=robotont
@@ -78,6 +80,7 @@
       changed_when: false
       failed_when: false
       when: robotont_containers_expected | bool
+    # yamllint enable rule:line-length
 
     - name: Validate the active workspace definition
       ansible.builtin.command: /usr/local/bin/robotont-workspace check {{ robotont_workspace_active | quote }}
@@ -105,8 +108,11 @@
 
     - name: Evaluate the container state
       ansible.builtin.set_fact:
-        containers_total: "{{ (containers.stdout_lines | default([]) | length) if robotont_containers_expected | bool else 0 }}"
-        containers_running: "{{ (containers.stdout_lines | default([]) | select('search', '\\|running\\|') | list | length) if robotont_containers_expected | bool else 0 }}"
+        containers_total: >-
+          {{ (containers.stdout_lines | default([]) | length) if robotont_containers_expected | bool else 0 }}
+        containers_running: >-
+          {{ (containers.stdout_lines | default([]) | select('search', '\\|running\\|') | list | length)
+             if robotont_containers_expected | bool else 0 }}
 
     - name: Collect the report
       ansible.builtin.set_fact:
@@ -117,14 +123,24 @@
           root_free_gb: >-
             {{ ((ansible_facts.mounts | selectattr('mount', 'equalto', '/')
                 | map(attribute='size_available') | list | sum) / 1073741824) | round(1) }}
-          runtime: "{{ ('container runtime, workspace ' ~ robotont_workspace_active) if robotont_runtime_deployed | bool else 'ROS on the host (robotont-setup)' }}"
-          service: "{{ service_show.stdout_lines if service_show.rc == 0 else ['systemctl failed: ' ~ (service_show.stderr | default(''))] }}"
-          containers: "{{ (containers.stdout_lines | default([])) if robotont_containers_expected | bool else 'none expected' }}"
+          runtime: >-
+            {{ ('container runtime, workspace ' ~ robotont_workspace_active)
+               if robotont_runtime_deployed | bool else 'ROS on the host (robotont-setup)' }}
+          service: >-
+            {{ service_show.stdout_lines if service_show.rc == 0
+               else ['systemctl failed: ' ~ (service_show.stderr | default(''))] }}
+          containers: >-
+            {{ (containers.stdout_lines | default([])) if robotont_containers_expected | bool else 'none expected' }}
           containers_running: "{{ containers_running }}/{{ containers_total }}"
-          workspace_check: "{{ ((workspace_check.stdout_lines | default([])) + (workspace_check.stderr_lines | default([]))) if robotont_containers_expected | bool else 'n/a' }}"
+          workspace_check: >-
+            {{ ((workspace_check.stdout_lines | default([])) + (workspace_check.stderr_lines | default([])))
+               if robotont_containers_expected | bool else 'n/a' }}
           mainboard_present: "{{ mainboard.stat.exists }}"
           release: "{{ release_info.stdout_lines }}"
-          workspace: "{{ ((workspace_export.stdout if (workspace_export.rc | default(1)) == 0 else 'not available: ' ~ (workspace_export.stderr | default(workspace_export.msg | default(''))))) if robotont_workspace_active == 'host' else 'n/a (container runtime)' }}"
+          workspace: >-
+            {{ ((workspace_export.stdout if (workspace_export.rc | default(1)) == 0
+                else 'not available: ' ~ (workspace_export.stderr | default(workspace_export.msg | default('')))))
+               if robotont_workspace_active == 'host' else 'n/a (container runtime)' }}
 
     - name: Show the report
       ansible.builtin.debug:
@@ -135,7 +151,10 @@
         that:
           - service_show.rc == 0
           - "'ActiveState=active' in service_show.stdout_lines"
-          - not (robotont_containers_expected | bool) or (containers_total | int > 0 and containers_running | int == containers_total | int)
+          - >-
+            not (robotont_containers_expected | bool)
+            or (containers_total | int > 0 and containers_running | int == containers_total | int)
           - not (robotont_containers_expected | bool) or workspace_check.rc == 0
-        fail_msg: "{{ inventory_hostname }}: robotont.service is not active, or the workspace containers are not all running."
+        fail_msg: >-
+          {{ inventory_hostname }}: robotont.service is not active, or the workspace containers are not all running.
         quiet: true

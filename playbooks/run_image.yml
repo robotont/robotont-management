@@ -99,11 +99,13 @@
 
         - name: Validate the workspace on the robot
           ansible.builtin.command: /usr/local/bin/robotont-workspace check {{ workspace | quote }}
+          become: true
           become_user: "{{ robotont_user }}"
           changed_when: false
 
-        - name: Pull {{ image }} (as the robot user; the robot needs internet)
+        - name: Pull the image as the robot user (the robot needs internet) {{ image }}
           ansible.builtin.command: /usr/local/bin/robotont-workspace pull {{ workspace | quote }}
+          become: true
           become_user: "{{ robotont_user }}"
           register: image_pull
           changed_when: "'updated' in image_pull.stdout"

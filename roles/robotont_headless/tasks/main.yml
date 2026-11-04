@@ -18,8 +18,10 @@
 # suites configured; without <release>-updates apt cannot resolve the -dev packages that
 # ros-jazzy-desktop pulls in ("held broken packages"). Add the updates suite when it is missing.
 - name: Check whether the updates suite is configured
+  vars:
+    updates_suite: "{{ ansible_facts.distribution_release }}-updates"
   ansible.builtin.shell: >-
-    grep -rlsE '^(Suites:.*\b{{ ansible_facts.distribution_release }}-updates\b|deb .*\b{{ ansible_facts.distribution_release }}-updates\b)'
+    grep -rlsE '^(Suites:.*\b{{ updates_suite }}\b|deb .*\b{{ updates_suite }}\b)'
     /etc/apt/sources.list /etc/apt/sources.list.d/
   register: updates_suite
   changed_when: false
@@ -29,7 +31,9 @@
   ansible.builtin.deb822_repository:
     name: ubuntu-updates
     types: deb
-    uris: "{{ 'http://ports.ubuntu.com/ubuntu-ports/' if ansible_facts.architecture != 'x86_64' else 'http://archive.ubuntu.com/ubuntu/' }}"
+    uris: >-
+      {{ 'http://ports.ubuntu.com/ubuntu-ports/' if ansible_facts.architecture != 'x86_64'
+         else 'http://archive.ubuntu.com/ubuntu/' }}
     suites: "{{ ansible_facts.distribution_release }}-updates"
     components: [main, restricted, universe, multiverse]
     signed_by: /usr/share/keyrings/ubuntu-archive-keyring.gpg

@@ -54,6 +54,7 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository_owner }}/robotont-ros:${{ matrix.release }}
           cache-from: type=registry,ref=ghcr.io/${{ github.repository_owner }}/robotont-ros:cache-${{ matrix.release }}
+          # yamllint disable-line rule:line-length
           cache-to: type=registry,ref=ghcr.io/${{ github.repository_owner }}/robotont-ros:cache-${{ matrix.release }},mode=max
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}

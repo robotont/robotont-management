@@ -1,4 +1,5 @@
-# Enrolled by "1. Setup Ubuntu" on 2026-11-04. Delete this file to remove the robot from the fleet.
+# Enrolled by "1. Setup Ubuntu" on 2026-11-04.
+# Delete this file to remove the robot from the fleet.
 robotont_rpi:
   hosts:
     robotont-123:

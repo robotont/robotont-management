@@ -59,7 +59,9 @@
           - wifi_hotspot_password | length >= 8
           - wifi_client_ssid is defined
           - wifi_client_password is defined
-        fail_msg: "Set WIFI_HOTSPOT_PASSWORD (8 or more characters), WIFI_CLIENT_SSID and WIFI_CLIENT_PASSWORD in server/.env, or pass them with -e."
+        fail_msg: >-
+          Set WIFI_HOTSPOT_PASSWORD (8 or more characters), WIFI_CLIENT_SSID and WIFI_CLIENT_PASSWORD
+          in server/.env, or pass them with -e.
         quiet: true
       when: robotont_generation == '3lite'
 
@@ -73,10 +75,13 @@
   gather_facts: false
   vars:
     rpi_checkout: "{{ playbook_dir }}/../external/robotont-setup-rpi"
-    rpi_patches: "{{ query('ansible.builtin.fileglob', playbook_dir ~ '/../patches/robotont-setup-rpi/*.patch') | sort }}"
+    rpi_patches: >-
+      {{ query('ansible.builtin.fileglob', playbook_dir ~ '/../patches/robotont-setup-rpi/*.patch')
+         | sort }}
   tasks:
     - name: Check which patches are already applied
-      ansible.builtin.command: git -c safe.directory='*' -C {{ rpi_checkout | quote }} apply --check --reverse {{ item | quote }}
+      ansible.builtin.command: >-
+        git -c safe.directory='*' -C {{ rpi_checkout | quote }} apply --check --reverse {{ item | quote }}
       loop: "{{ rpi_patches }}"
       loop_control:
         label: "{{ item | basename }}"
@@ -92,9 +97,11 @@
       when: item.rc != 0
 
 # Robotont 3 with Intel NUC. The `when` is inherited by every imported task.
-- import_playbook: ../external/robotont-setup/ansible/robots.yaml
+- name: Upstream robotont-setup playbook (NUC)
+  import_playbook: ../external/robotont-setup/ansible/robots.yaml
   when: robotont_generation == '3'
 
 # Robotont 3 Lite with Raspberry Pi 5.
-- import_playbook: ../external/robotont-setup-rpi/ansible/robots.yaml
+- name: Upstream robotont-setup-rpi playbook (Raspberry Pi)
+  import_playbook: ../external/robotont-setup-rpi/ansible/robots.yaml
   when: robotont_generation == '3lite'
