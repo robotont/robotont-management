@@ -1,6 +1,20 @@
 # Alert rules evaluated by Prometheus; no Alertmanager yet, so they show in Prometheus
 # (/alerts) and on the Grafana dashboard, nothing is sent anywhere (docs/10-monitoring.md).
 groups:
+  - name: robotont-records
+    rules:
+      # When a robot was last scraped successfully. While it is up this is "now"; while it is
+      # down the rule keeps re-emitting its last value ("or" with itself), so the dashboard can
+      # show "last seen 3 days ago" for an offline robot. Lost only if Prometheus itself stops
+      # for more than 5 minutes.
+      - record: robotont_last_seen_timestamp_seconds
+        expr: timestamp(up{job="robots"} == 1) or robotont_last_seen_timestamp_seconds
+      # Ready to drive: reachable, robotont.service active, mainboard enumerated.
+      - record: robotont_ready
+        expr: >-
+          (up{job="robots"} == 1)
+          and on (instance) (robotont_service_active == 1)
+          and on (instance) (robotont_device_present{device="mainboard"} == 1)
   - name: robotont
     rules:
       - alert: RobotDown
