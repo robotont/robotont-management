@@ -9,6 +9,24 @@
     regexp: '^127\.0\.1\.1'
     line: "127.0.1.1   {{ robotont_hostname }}"
 
+# Raspberry Pi Imager configures the card with cloud-init, which keeps `manage_etc_hosts: true`
+# and rewrites /etc/hosts from its own template at every boot (seen 2026-11-04: the line above
+# came back changed after a reboot). A renumbered robot would also get its old name back there.
+- name: Check for cloud-init
+  ansible.builtin.stat:
+    path: /etc/cloud/cloud.cfg.d
+  register: cloud_cfg_dir
+
+- name: Stop cloud-init from resetting the hostname and /etc/hosts at boot
+  ansible.builtin.copy:
+    content: |
+      # Managed by Ansible (roles/robotont_host): the hostname and /etc/hosts belong to the fleet setup.
+      preserve_hostname: true
+      manage_etc_hosts: false
+    dest: /etc/cloud/cloud.cfg.d/99-robotont-hostname.cfg
+    mode: "0644"
+  when: cloud_cfg_dir.stat.exists
+
 - name: Give the robot user access to serial ports, joysticks and video devices
   ansible.builtin.user:
     name: "{{ robotont_user }}"
