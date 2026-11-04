@@ -92,6 +92,12 @@ and results into the test log of docs/07.
    owns the interfaces from boot and only its addresses exist. Ansible also retries dropped
    connections (`retries = 5` in `ansible.cfg`) and uses IPv4 only (`-4`), because mDNS also hands
    the container an unusable IPv6 link-local address first.
+   **Third finding, 2026-11-04 (Linux laptop, Docker Engine):** the Semaphore container cannot
+   resolve `.local` there, so the address *has* to be an IP. On the bench the lease moved from
+   `10.42.0.238` to `.239` during the handover and the run failed at the wait step. Expected and
+   harmless: find the robot again (`getent hosts robotont-N.local` on the laptop, or the router),
+   re-run "1. Setup Ubuntu" with the new address; the handover is not repeated and the enrolment
+   file gets the new IP.
 3. **Unplugging Ethernet during the run** aborts it at the wait step. If a run is aborted after
    the handover: reboot the robot (NetworkManager owns everything from the next boot), check
    `nmcli device status`, then re-run "1. Setup Ubuntu"; the role's file tasks report `ok` and
@@ -115,6 +121,25 @@ and results into the test log of docs/07.
    ask from docs/05 §4 stands. **To test** with the mainboard: `ls -l /dev/robotont /dev/ttyACM0`
    and `ros2 topic hz /rt<id>/odom`.
 
+7. **avahi is only installed when the first boot has internet.** Raspberry Pi Imager puts
+   `packages: [avahi-daemon]` into the Ubuntu Server cloud-init, but cloud-init runs that step once
+   per instance and never retries. A card first booted without a network (seen 2026-10-12: "Temporary
+   failure resolving archive.ubuntu.com") never answers `robotont-N.local` until "1. Setup Ubuntu"
+   installs avahi over the IP. **To avoid**: first boot on a cable with DHCP and internet, or with
+   the Wi-Fi set in Imager in range; `robotont-N.local` then answers within a minute of the first
+   boot (verified 2026-11-04 on a fresh 24.04.5 card behind a laptop's shared Ethernet).
+8. **dpkg lock held by unattended-upgrades on a fresh card.** For about ten minutes after the first
+   boots Ubuntu Server runs `unattended-upgrade`; the Docker install in "1. Setup Ubuntu" failed
+   with "Unable to acquire the dpkg frontend lock" after the apt module's default 60 s. Every apt
+   task in `roles/docker` and `roles/robotont_headless` now waits up to 600 s (`lock_timeout`).
+   **To re-test**: fresh card, "1. Setup Ubuntu" right after the first boot; the Docker step waits
+   and then succeeds.
+9. **Semaphore container on a Linux laptop with a shared Ethernet connection.** NetworkManager's
+   `shared` mode rejects forwarded traffic to the cable from any other subnet, above Docker's own
+   rules, so the Semaphore task fails at "Log in over SSH" with "Connection refused" while
+   `ssh` from the laptop works. One firewall rule for the session fixes it; see "Linux host" in
+   [semaphore-setup.md](semaphore-setup.md). Not an issue on a lab network or a server.
+
 ## Troubleshooting
 
 | Symptom | Where to look | Usual cause |
@@ -133,6 +158,9 @@ and results into the test log of docs/07.
 | Laptop does not see the topics of a container | `docker inspect -f '{{.HostConfig.NetworkMode}}' robotont-driver` (must be `host`), `ufw status` (inactive), same `ROS_DOMAIN_ID` | workspace service not extending `ros-app`, firewall re-enabled |
 | `ros:jazzy-ros-base` cannot be pulled | robot's internet | robot in hotspot mode without uplink: connect Ethernet |
 | After the handover `nmcli device status` shows `wlan0 unavailable` | `journalctl -u NetworkManager` ("couldn't grab this interface") | old wpa_supplicant still held the interface; `sudo systemctl restart NetworkManager` or reboot |
+| Semaphore: `Log in over SSH` fails with `Connection refused`, `ssh` from the same machine works | `docker exec robotont-semaphore nc -z <ip> 22` | Linux laptop with a shared Ethernet connection: the firewall rule in semaphore-setup.md (issue 9) |
+| `Unable to acquire the dpkg frontend lock` in the Docker step | `ps -e \| grep unattended` on the robot | fresh card still running `unattended-upgrade`; the roles wait 600 s, otherwise re-run later (issue 8) |
+| `robotont-N.local` never resolved since the first boot | `dpkg -l avahi-daemon` on the robot; `grep avahi /var/log/cloud-init-output.log` | first boot without internet (issue 7): run "1. Setup Ubuntu" with the IP |
 | `robotont-N.local` stops resolving after the handover | `systemctl is-active avahi-daemon` on the robot | avahi missing on Server (the role installs it) or restarting; use the IP from the router meanwhile |
 | Image build fails on rosdep | build by hand and read the missing key | add it to `ROSDEP_SKIP_KEYS` or to the apt list in the Dockerfile |
 | `Install ROS (jazzy-desktop)` fails with "held broken packages" | `apt-cache policy libdbus-1-dev libdbus-1-3` on the robot; `cat /etc/apt/sources.list.d/ubuntu.sources` | the updates suite is missing (Imager Server image); the headless role adds it, or add `noble-updates` by hand and `apt update` |
