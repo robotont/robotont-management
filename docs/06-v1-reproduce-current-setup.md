@@ -131,6 +131,12 @@ ansible-playbook playbooks/status.yml -K        # read-only report of every enro
 
 ## Running from Semaphore
 
+Patches: `playbooks/setup_ros.yml` imports the upstream playbooks statically, so Ansible has
+parsed their role files before the patch play in that playbook runs. The patches must therefore
+be in the checkout beforehand: the Semaphore bootstrap applies them on every `up -d`, and from a
+terminal run `scripts/apply_patches.sh` once after cloning (idempotent). Found 2026-11-04 when a
+fresh clone's first legacy run failed at "Disable services that are not needed for the robot".
+
 See [semaphore-setup.md](semaphore-setup.md): `docker compose -f server/compose.yaml up -d` creates
 the project, keys, repository, inventory, environment and the four tasks from `server/.env`. Run
 "1. Setup Ubuntu", then "Setup ROS (legacy)".
@@ -188,3 +194,5 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part A.
 | 2026-09-27 | robotont-123, fresh card, mainboard and lidar fitted (user-driven, Semaphore UI) | Setup ROS (legacy) re-run | **green** in 11 min. `status.yml` from the Mac: service active, `NRestarts=0`, hostname `robotont-123`, `mainboard_present: true`, 46 GB free, workspace = the Lite release commits. On the robot: `/dev/robotont -> ttyACM0`, `/dev/lidar -> ttyUSB0`, RPLidar identified (S/N, firmware 1.02), driver opens the mainboard ("Hardware interface is ready") but no `odom`, `battery_state` or `joint_states` topics: the mainboard sends nothing (battery not connected; firmware side, left out of this test by the user). Hotspot profile `robotont-123-hotspot` present. `camera_node` respawns every 3 s (upstream unit hard-codes `camera:=true`, docs/08 issue 5); gamepad not paired yet |
 | 2026-09-27 | robotont-123, fresh card | 3. Setup Docker, 4. Switch preset driver (user-driven) | green after a transient ISP outage; details in the docs/07 test log |
 | 2026-09-27 | robotont-123 | Semaphore reduced to 1. Setup Ubuntu / 2. Deploy / 3. Switch workspace; this path becomes "Setup ROS (legacy)" | see the docs/07 test log |
+| 2026-11-04 | robotont-123 (fresh 24.04.5 card set up by 1. Setup Ubuntu and 2. Deploy the same day; no mainboard, no lidar), Linux laptop, Semaphore `bootstrap run` | Setup ROS (legacy), task on a **fresh clone** | **red** after 19 min at "Disable services that are not needed for the robot" (`cups`, `cups-browsed`, `whoopsie` missing on Server): the checkout was unpatched when Ansible parsed the statically imported playbook, and the patch play inside `setup_ros.yml` ran too late. ROS 2 Jazzy and `~peko/ros2_ws` were already installed and built. Fix: the Semaphore bootstrap now runs `scripts/apply_patches.sh` before every configure; the runtime patch play stays |
+| 2026-11-04 | robotont-123, patched checkout | Setup ROS (legacy) re-run | 5 min, `ok=51 changed=17`; **red only at the last upstream step** `nmcli connection up <client SSID>` (the bench `.env` carries a Wi-Fi that does not exist here), so the upstream reboot was skipped. State afterwards: `/opt/ros/jazzy`, built `ros2_ws`, hotspot and client profiles under `/etc/NetworkManager/system-connections`, legacy unit written to `/lib/systemd/system` (shadowed by the `/etc` unit from 2. Deploy). Adoption of this state is in the docs/07 test log |

@@ -67,6 +67,8 @@ services:
       - ./bootstrap.py:/bootstrap/bootstrap.py:ro
       - ./templates.json:/bootstrap/templates.json:ro
       - ../robot/workspaces:/bootstrap/workspaces:ro
+      # The repository itself, read-write: the bootstrap applies patches/ to the submodules.
+      - ..:/repositories/robotont-management
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
     entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 

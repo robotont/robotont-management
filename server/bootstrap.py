@@ -207,6 +207,27 @@ def run_template(api, name, variables):
     sys.exit(0 if status == "success" else 1)
 
 
+def apply_patches():
+    """Patch the submodule checkouts (patches/<submodule>/*.patch) so that the statically imported
+    legacy playbooks are already patched when Semaphore parses them. Idempotent; see
+    scripts/apply_patches.sh. Skipped when the repository or git is not available here."""
+    script = os.path.join(REPO_PATH, "scripts", "apply_patches.sh")
+    if not os.path.exists(script):
+        print("  patches      skipped, scripts/apply_patches.sh not found")
+        return
+    import subprocess
+    result = subprocess.run(["sh", script], capture_output=True, text=True)
+    for line in (result.stdout + result.stderr).strip().splitlines():
+        print("  patches      " + line.replace("apply_patches: ", ""))
+    if result.returncode != 0:
+        print("  patches      WARNING: not every patch applied; Setup ROS (legacy) may run unpatched")
+    # This one-shot runs as root (Linux: the 0600 SSH key) and the Semaphore tasks run as uid 1001:
+    # give the submodule files back to the repository's owner so that git keeps working on the host.
+    owner = os.stat(REPO_PATH)
+    if os.geteuid() == 0:
+        subprocess.run(["chown", "-R", f"{owner.st_uid}:{owner.st_gid}", os.path.join(REPO_PATH, "external")])
+
+
 def main(argv):
     api = Api(URL)
     wait_for_api(api)
@@ -223,7 +244,8 @@ def main(argv):
             rest = rest[2:]
         run_template(api, name, variables)
     else:
-        configure(api)
+        apply_patches()
+    configure(api)
 
 
 if __name__ == "__main__":
