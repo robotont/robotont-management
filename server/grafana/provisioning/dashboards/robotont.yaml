@@ -1,0 +1,10 @@
+# Dashboards provisioned from files: server/grafana/dashboards/*.json (docs/10-monitoring.md).
+apiVersion: 1
+providers:
+  - name: robotont
+    folder: ""
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

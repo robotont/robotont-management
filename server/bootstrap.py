@@ -228,6 +228,24 @@ def apply_patches():
         subprocess.run(["chown", "-R", f"{owner.st_uid}:{owner.st_gid}", os.path.join(REPO_PATH, "external")])
 
 
+def prometheus_targets():
+    """Render server/prometheus/targets/robots.json from inventory/robots/ (scripts/prometheus_targets.py),
+    so that Prometheus scrapes exactly the enrolled robots. "1. Setup Ubuntu" does the same after an
+    enrolment; this covers robots removed by deleting their file."""
+    script = os.path.join(REPO_PATH, "scripts", "prometheus_targets.py")
+    if not os.path.exists(script):
+        print("  prometheus   skipped, scripts/prometheus_targets.py not found")
+        return
+    import subprocess
+    result = subprocess.run(["python3", script], capture_output=True, text=True)
+    for line in (result.stdout + result.stderr).strip().splitlines():
+        print("  prometheus   " + line.replace("prometheus targets: ", ""))
+    owner = os.stat(REPO_PATH)
+    if os.geteuid() == 0 and result.returncode == 0:
+        subprocess.run(["chown", f"{owner.st_uid}:{owner.st_gid}",
+                        os.path.join(REPO_PATH, "server", "prometheus", "targets", "robots.json")])
+
+
 def main(argv):
     api = Api(URL)
     wait_for_api(api)
@@ -245,6 +263,7 @@ def main(argv):
         run_template(api, name, variables)
     else:
         apply_patches()
+    prometheus_targets()
     configure(api)
 
 

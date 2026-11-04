@@ -9,7 +9,8 @@
 # server/.env and server/templates.json (idempotent: run `up -d` again after editing them).
 #
 # Security model: local machine or the UT private network only. Admin credentials are fixed and
-# the key store is not encrypted at rest. Set SEMAPHORE_BIND=0.0.0.0 in .env to serve the LAN.
+# the key store is not encrypted at rest. Set SEMAPHORE_BIND=0.0.0.0 in .env to serve the LAN
+# (it is the bind address of Semaphore, Prometheus and Grafana alike).
 # The image tag is pinned; upgrading Semaphore is a deliberate change here, never `latest`.
 name: robotont
 
@@ -72,7 +73,52 @@ services:
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
     entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 
+  # Monitoring (docs/10-monitoring.md): Prometheus scrapes node_exporter on every robot listed in
+  # prometheus/targets/robots.json (rendered from inventory/robots/ by the bootstrap and by
+  # "1. Setup Ubuntu"); Grafana serves the provisioned "Robotont fleet" dashboard on port 3001.
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: robotont-prometheus
+    restart: unless-stopped
+    ports:
+      - "${SEMAPHORE_BIND:-127.0.0.1}:9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - ./prometheus/targets:/etc/prometheus/targets:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    container_name: robotont-grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "${SEMAPHORE_BIND:-127.0.0.1}:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"          # anyone on the network may view; admin edits
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/robotont-fleet.json
+      TZ: Europe/Tallinn
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+
 volumes:
   semaphore_data:
   semaphore_config:
   semaphore_tmp:
+  prometheus_data:
+  grafana_data:

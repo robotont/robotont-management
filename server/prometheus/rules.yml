@@ -1,0 +1,39 @@
+# Alert rules evaluated by Prometheus; no Alertmanager yet, so they show in Prometheus
+# (/alerts) and on the Grafana dashboard, nothing is sent anywhere (docs/10-monitoring.md).
+groups:
+  - name: robotont
+    rules:
+      - alert: RobotDown
+        expr: up{job="robots"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.robot }} is not reachable by Prometheus"
+          description: >-
+            No answer from {{ $labels.instance }} for 2 minutes (off, no network, or node_exporter stopped).
+      - alert: RobotontServiceInactive
+        expr: robotont_service_active == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "robotont.service is not active on {{ $labels.robot }}"
+          description: "The active workspace is not running (journalctl -u robotont on the robot)."
+      - alert: RobotontDeviceMissing
+        expr: robotont_container_device == 1 and on (instance, device) robotont_device_present == 0
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "{{ $labels.robot }}: {{ $labels.device }} claimed by {{ $labels.service }} but not present"
+          description: >-
+            The workspace {{ $labels.workspace }} needs the {{ $labels.device }}, which is not enumerated
+            (unplugged, powered off, or a udev rule problem).
+      - alert: RobotontDeviceConflict
+        expr: robotont_device_conflict == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.robot }}: {{ $labels.device }} claimed by two running containers"
