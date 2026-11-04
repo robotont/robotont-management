@@ -69,13 +69,15 @@
     - role: robotont_headless
       when: robotont_generation == '3lite' and robotont_headless | default(true) | bool
 
-# What robotont-setup did on the host besides ROS (hostname, udev, groups, Wi-Fi), and Docker.
-- name: Host configuration and Docker Engine
+# What robotont-setup did on the host besides ROS (hostname, udev, groups, Wi-Fi), Docker, and
+# node_exporter for the Prometheus in server/compose.yaml (docs/10-monitoring.md).
+- name: Host configuration, Docker Engine and node_exporter
   hosts: robots
   become: true
   roles:
     - robotont_host
     - docker
+    - monitoring
 
 - name: Record the robot in the inventory
   hosts: robots
@@ -97,6 +99,14 @@
                 robotont_id: {{ robotont_id }}
                 robotont_camera: {{ robotont_camera | bool | string | lower }}
       delegate_to: localhost
+
+    # Prometheus (server/compose.yaml) scrapes the robots listed in server/prometheus/targets/,
+    # rendered from inventory/robots/ so that the inventory stays the only list of robots.
+    - name: Refresh the Prometheus targets from the inventory
+      ansible.builtin.command: python3 {{ playbook_dir }}/../scripts/prometheus_targets.py
+      delegate_to: localhost
+      register: prometheus_targets
+      changed_when: "'unchanged' not in prometheus_targets.stdout"
 
     - name: Next step
       ansible.builtin.debug:

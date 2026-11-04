@@ -11,3 +11,6 @@ server/data/
 
 # Python
 __pycache__/
+
+# Prometheus targets rendered from inventory/robots/ (scripts/prometheus_targets.py)
+server/prometheus/targets/*.json
