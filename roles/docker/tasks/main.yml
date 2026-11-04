@@ -2,6 +2,7 @@
 # Docker Engine and the Compose plugin from Docker's apt repository (Ubuntu 24.04).
 - name: Install prerequisites
   ansible.builtin.apt:
+    lock_timeout: 600       # a fresh install runs unattended-upgrades for minutes after boot
     name:
       - ca-certificates
       - curl
@@ -24,11 +25,13 @@
 
 - name: Refresh the apt cache after adding the repository
   ansible.builtin.apt:
+    lock_timeout: 600       # a fresh install runs unattended-upgrades for minutes after boot
     update_cache: true
   when: docker_repo.changed
 
 - name: Install Docker Engine and the Compose plugin
   ansible.builtin.apt:
+    lock_timeout: 600       # a fresh install runs unattended-upgrades for minutes after boot
     name: "{{ docker_packages }}"
     state: present
 

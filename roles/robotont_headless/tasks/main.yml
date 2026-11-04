@@ -38,11 +38,13 @@
 
 - name: Refresh the apt cache after adding the updates suite
   ansible.builtin.apt:
+    lock_timeout: 600       # a fresh install runs unattended-upgrades for minutes after boot
     update_cache: true
   when: updates_added.changed
 
 - name: Install NetworkManager, avahi and BlueZ
   ansible.builtin.apt:
+    lock_timeout: 600       # a fresh install runs unattended-upgrades for minutes after boot
     name:
       - network-manager
       - avahi-daemon
