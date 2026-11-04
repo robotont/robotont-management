@@ -39,6 +39,8 @@ Docker Engine) and "2. Deploy" puts the *workspaces* of this repository onto a r
 images that GitHub Actions builds and pushes to GHCR. "3. Switch workspace" selects what runs:
 the driver, a demo, later a student environment ([docs/07](docs/07-container-runtime.md)), and
 "4. Run image" runs any container image on a robot as a workspace without touching the repository.
+Monitoring: node_exporter on every robot, Prometheus and Grafana next to Semaphore with a fleet
+dashboard and alert rules ([docs/10](docs/10-monitoring.md)).
 Verified end to end on a Robotont 3 Lite (Raspberry Pi 5) with mainboard and lidar; the first
 CI image build is pending a push. The upstream `robotont-setup` playbooks remain as
 "Setup ROS (legacy)" for robots that keep ROS on the host (git submodules, [docs/06](docs/06-v1-reproduce-current-setup.md)).
@@ -48,7 +50,8 @@ CI image build is pending a push. The upstream `robotont-setup` playbooks remain
 Semaphore: `cp server/.env.example server/.env`, fill in the robot-side values, then
 `docker compose -f server/compose.yaml up -d`. The project, keys, inventory, environment and the
 tasks are created automatically ([docs/semaphore-setup.md](docs/semaphore-setup.md)); log in as
-`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy". What the host
+`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy"; the fleet
+dashboard is at http://localhost:3001. What the host
 machine needs (Docker, git, mDNS, the network) is in [docs/00-host-setup.md](docs/00-host-setup.md);
 "0. Find robots" prints a robot's address when `robotont-N.local` does not resolve.
 
@@ -72,9 +75,9 @@ playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace, 
                            status (command-line report until Grafana)
 scripts/                   helpers (find_robots.py: TCP probe of a network; apply_patches.sh: patches onto the submodules)
 roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
-                           docker, robotont_workspaces
+                           docker, monitoring (node_exporter), robotont_workspaces
 inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
-server/                    Docker Compose for Semaphore, automatic bootstrap
+server/                    Docker Compose for Semaphore (automatic bootstrap), Prometheus and Grafana (prometheus/, grafana/)
 external/robotont-setup/   upstream playbooks for NUC robots (git submodule, pinned; legacy)
 external/robotont-setup-rpi/  the same repository at the Raspberry Pi branch (git submodule, pinned; legacy)
 patches/                   local patches applied to the submodule checkouts at run time (legacy)
@@ -96,3 +99,4 @@ docs/                      analysis, mapping, plans, runbooks
 | [docs/07-container-runtime.md](docs/07-container-runtime.md) | Workspaces: switching, images and CI, devices, monitoring hooks, runbook, phases, test log |
 | [docs/semaphore-setup.md](docs/semaphore-setup.md) | The local Semaphore: automatic setup, the tasks and their dialog fields |
 | [docs/08-hardware-test-guide.md](docs/08-hardware-test-guide.md) | Step-by-step manual verification on a robot: host setup, workspaces, known issues |
+| [docs/10-monitoring.md](docs/10-monitoring.md) | node_exporter on the robots, Prometheus and Grafana next to Semaphore, the fleet dashboard, alert rules |

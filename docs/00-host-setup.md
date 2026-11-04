@@ -24,7 +24,8 @@ cp server/.env.example server/.env        # key path, sudo password, Wi-Fi value
 docker compose -f server/compose.yaml up -d
 ```
 
-Then [semaphore-setup.md](semaphore-setup.md). The SSH key named in `server/.env` is the one
+Then [semaphore-setup.md](semaphore-setup.md); the same `up -d` also starts Prometheus (`:9090`) and
+Grafana (`:3001`), see [10-monitoring.md](10-monitoring.md). The SSH key named in `server/.env` is the one
 whose public half goes onto every robot (Raspberry Pi Imager, or `ssh-copy-id`).
 
 ## 2. Per operating system

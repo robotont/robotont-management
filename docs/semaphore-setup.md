@@ -15,7 +15,8 @@ docker compose -f server/compose.yaml up -d
 open http://localhost:3000              # admin / admin
 ```
 
-`up -d` starts Semaphore (`semaphoreui/semaphore:v2.19.14`, pinned; embedded SQLite database) and
+`up -d` also starts Prometheus (`:9090`) and Grafana (`:3001`, `admin` / `admin`), see
+[10-monitoring.md](10-monitoring.md). It starts Semaphore (`semaphoreui/semaphore:v2.19.14`, pinned; embedded SQLite database) and
 then the one-shot service `bootstrap`, which waits for the API and creates or updates, from
 `server/.env` and `server/templates.json`:
 
@@ -46,7 +47,7 @@ is no Limit, tag or CLI argument field.
 | Task | Dialog fields | What it does | Time |
 |---|---|---|---|
 | 0. Find robots | Network | only when `robotont-N.local` does not resolve: probes the network for SSH hosts, logs in with the fleet key, lists every `robotont-N` with its address. Changes nothing | 30 s |
-| 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | once per robot: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); hostname, udev symlinks, device groups, hotspot and lab Wi-Fi profiles; Docker Engine; writes `inventory/robots/robotont-N.yaml` | about 5 min on a fresh Lite robot; seconds when re-run |
+| 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | once per robot: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); hostname, udev symlinks, device groups, hotspot and lab Wi-Fi profiles; Docker Engine; node_exporter; writes `inventory/robots/robotont-N.yaml` and refreshes the Prometheus targets | about 5 min on a fresh Lite robot; seconds when re-run |
 | 2. Deploy | Robot number | the workspaces of this repository ([07](07-container-runtime.md)): `/srv/robotont`, image pulls from GHCR, `robotont.service`, metrics timer; the first deploy selects the `driver` workspace, later deploys restart it when its image changed | 1 to 6 min; 15 to 40 min when the image must be built on the robot |
 | 3. Switch workspace | Robot number, Workspace | activates a workspace on one robot | 1 min |
 | 4. Run image | Robot number, Image, Name, Command, Hardware access | runs any container image on one robot as a workspace: generates `/srv/robotont/workspaces/<name>/compose.yaml` on the robot (host network, ROS environment, optional `/dev` access), pulls the image as `peko`, activates it. Needs 2. Deploy on that robot. Nothing is written to the repository | 1 to 3 min plus the pull |
@@ -160,7 +161,8 @@ sudo chmod 755 /etc/NetworkManager/dispatcher.d/90-robotont-bench
   `server/bootstrap.py` (or the repository in the UI), remove the bind mount, and check that the
   submodules are initialised in Semaphore's checkout. Enrolment files then need a push from the
   Semaphore side or a move of the inventory out of the repository.
-- To reach the LAN instead of localhost only, set `SEMAPHORE_BIND=0.0.0.0` in `server/.env`.
+- To reach the LAN instead of localhost only, set `SEMAPHORE_BIND=0.0.0.0` in `server/.env`
+  (Semaphore, Grafana and Prometheus alike).
 - Upgrading Semaphore: change the pinned tag in `server/compose.yaml`; the API used by the
   bootstrap (`/api/projects`, keys, repositories, inventory, environment, templates with
   `survey_vars` and `task_params`, tasks) has been stable across 2.x, but re-run and read the
