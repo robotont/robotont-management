@@ -66,14 +66,22 @@ ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
 ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=test-talker
 ```
 
+## Checks
+
+`scripts/check.sh` runs the static checks (playbook syntax, yamllint, ansible-lint, shellcheck,
+`py_compile`, JSON, `docker compose config`, promtool, line endings) and prints PASS, FAIL or
+SKIP per step; `.github/workflows/checks.yml` runs the same script on every push and pull request.
+Tools missing locally are skipped, so a partial run is still useful. Configuration in `.yamllint`
+and `.ansible-lint`; `.gitattributes` keeps every text file LF.
+
 ## Repository layout
 
 ```
 robot/                     deployed to /srv/robotont: workspaces/, images/ (Dockerfiles), releases/ (pinned sources), bin/
-.github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR
+.github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR; checks.yml: static checks
 playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace, run_image (Semaphore tasks 0 to 4); setup_ros (legacy);
                            status (command-line report until Grafana)
-scripts/                   helpers (find_robots.py: TCP probe of a network; apply_patches.sh: patches onto the submodules)
+scripts/                   check.sh (static checks), find_robots.py, apply_patches.sh, prometheus_targets.py
 roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
                            docker, monitoring (node_exporter), robotont_workspaces
 inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
