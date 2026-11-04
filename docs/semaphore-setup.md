@@ -30,6 +30,11 @@ then the one-shot service `bootstrap`, which waits for the API and creates or up
 | Environment | robotont-secrets | extra variables `wifi_pass`, `wifi_hotspot_password`, `wifi_client_ssid`, `wifi_client_password` (those set in `.env`) |
 | Templates | the tasks below | from `server/templates.json`; the Workspace dropdown from `robot/workspaces`; templates not listed there are removed |
 
+The bootstrap also applies the patches under `patches/` to the submodule checkouts
+(`scripts/apply_patches.sh`, idempotent) before it configures anything, because "Setup ROS
+(legacy)" imports the upstream playbooks statically and Ansible parses them before the
+patch play inside that playbook can run (a fresh clone ran unpatched once, 2026-11-04).
+
 Re-run `docker compose -f server/compose.yaml up -d` after editing `.env` or `templates.json`:
 the bootstrap is idempotent and updates in place (`docker logs robotont-semaphore-bootstrap`).
 
@@ -44,6 +49,7 @@ is no Limit, tag or CLI argument field.
 | 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | once per robot: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); hostname, udev symlinks, device groups, hotspot and lab Wi-Fi profiles; Docker Engine; writes `inventory/robots/robotont-N.yaml` | about 5 min on a fresh Lite robot; seconds when re-run |
 | 2. Deploy | Robot number | the workspaces of this repository ([07](07-container-runtime.md)): `/srv/robotont`, image pulls from GHCR, `robotont.service`, metrics timer; the first deploy selects the `driver` workspace, later deploys restart it when its image changed | 1 to 6 min; 15 to 40 min when the image must be built on the robot |
 | 3. Switch workspace | Robot number, Workspace | activates a workspace on one robot | 1 min |
+| 4. Run image | Robot number, Image, Name, Command, Hardware access | runs any container image on one robot as a workspace: generates `/srv/robotont/workspaces/<name>/compose.yaml` on the robot (host network, ROS environment, optional `/dev` access), pulls the image as `peko`, activates it. Needs 2. Deploy on that robot. Nothing is written to the repository | 1 to 3 min plus the pull |
 | Setup ROS (legacy) | Robot number | the upstream robotont-setup playbook, unchanged, for robots that keep ROS on the host (workspace `host`): apt upgrade, ROS 2 Jazzy, workspace build, reboot. Not needed for workspaces | 20 to 60 min |
 
 Fields:
@@ -61,6 +67,17 @@ Fields:
 - **Workspace**: the directories under `robot/workspaces` (`host` only where ROS is installed on
   the host). The dropdown is filled when the bootstrap runs: after adding a workspace, run
   `docker compose -f server/compose.yaml up -d` again.
+
+- **Image**: a reference such as `traefik/whoami:v1.11.0`, `prom/node-exporter:v1.9.1` or
+  `ghcr.io/org/app:tag`. A private registry works after `docker login` as `peko` on the robot.
+- **Name** (optional): the workspace name, `[a-z0-9-]`; empty takes the image name
+  (`prom/node-exporter:v1.9.1` becomes `node-exporter`). Names of repository workspaces are refused.
+- **Command** (optional): replaces the image's command, for example `ros2 run demo_nodes_cpp talker`.
+- **Hardware access**: yes mounts `/dev` read-only and allows the mainboard, lidar and gamepad
+  device majors (the `hardware` definition of `_common/services.yaml`); no gives the `ros-app` one.
+  A generated workspace is re-activated by running the task again with the same name;
+  "3. Switch workspace" driver brings the bringup back. Remove one on the robot with
+  `sudo rm -r /srv/robotont/workspaces/<name>`.
 
 The Wi-Fi values are the same for every robot and come from `.env` through the environment.
 
@@ -84,6 +101,7 @@ docker compose -f server/compose.yaml run --rm -T bootstrap run "1. Setup Ubuntu
 docker compose -f server/compose.yaml run --rm -T bootstrap run "0. Find robots" --var network=192.168.1.0/24
 docker compose -f server/compose.yaml run --rm -T bootstrap run "2. Deploy" --var robotont_id=123
 docker compose -f server/compose.yaml run --rm -T bootstrap run "3. Switch workspace" --var robotont_id=123 --var workspace=driver
+docker compose -f server/compose.yaml run --rm -T bootstrap run "4. Run image" --var robotont_id=123 --var image=traefik/whoami:v1.11.0 --var hardware=no
 ```
 
 `playbooks/status.yml` (read-only report of every enrolled robot) runs from the command line only:

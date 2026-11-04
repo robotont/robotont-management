@@ -42,6 +42,16 @@ ROBOTONT_ROOT=../ ROBOTONT_ENV_FILE=../../test/robotont.env ../bin/robotont-work
 docker compose -f ../../server/compose.yaml up -d      # refreshes the dropdown in Semaphore
 ```
 
+## Generated from an image
+
+"4. Run image" in Semaphore writes a one-service workspace into `/srv/robotont/workspaces/<name>/`
+on the robot (not here): the given image, `container_name: robotont-<name>`, extending `ros-app`
+or, with hardware access, `hardware` (devices `mainboard,lidar,gamepad`), optional `command`,
+label `robotont.source: "4. Run image"`. The rules above apply to it; the name may not be one of
+the directories here. Deploy keeps such directories and pulls their images; remove one with
+`sudo rm -r /srv/robotont/workspaces/<name>`. Template:
+`roles/robotont_workspaces/templates/image-workspace.compose.yaml.j2`.
+
 ## Commands on the robot
 
 ```
@@ -50,7 +60,7 @@ robotont-workspace current          # the active one
 robotont-workspace status           # active workspace, service state, containers
 robotont-workspace check <name>     # validate before switching
 robotont-workspace switch <name>    # activate and restart robotont.service (peko may do this)
-robotont-workspace pull             # pull the images of every workspace
+robotont-workspace pull [name]      # pull the images of every workspace, or of one
 robotont-status                     # report from robotont-metrics (also inside containers)
 journalctl -u robotont -f           # logs of the active workspace
 ```

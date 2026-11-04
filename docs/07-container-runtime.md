@@ -130,6 +130,20 @@ docker compose -p robotont --env-file test/robotont.env -f robot/workspaces/<nam
 ROBOTONT_ROOT=robot ROBOTONT_ENV_FILE=test/robotont.env robot/bin/robotont-workspace check <name>
 ```
 
+**Run any image** without touching the repository: "4. Run image" (Robot number, Image, Name,
+Command, Hardware access) generates `/srv/robotont/workspaces/<name>/compose.yaml` on the robot
+from `roles/robotont_workspaces/templates/image-workspace.compose.yaml.j2` (one service that
+extends `ros-app` or `hardware`), pulls the image as peko and activates it. Deploy leaves such
+directories alone and keeps pulling their images. Good for demos, a quick exporter, a test
+build from a personal registry. Anything with volumes, several services or devices beyond the
+shared definitions is a repository workspace.
+
+```
+ansible-playbook playbooks/run_image.yml -K -e robotont_id=123 -e image=traefik/whoami:v1.11.0
+ansible-playbook playbooks/run_image.yml -K -e robotont_id=123 -e image=ghcr.io/robotont/robotont-ros:2026.09-lite \
+  -e workspace=talker-image -e hardware=yes -e command='ros2 run demo_nodes_cpp talker'
+```
+
 **Change the release**: add `robot/releases/<new>.repos` (pinned SHAs, `vcs export --exact` from a
 known-good workspace), add the release to the workflow matrix, set `robotont_release` in
 `group_vars`, push (CI builds), then "2. Deploy" on each robot: the pull brings the new layer and
@@ -141,8 +155,9 @@ workspace for as long as the host ROS is there.
 
 ## Semaphore tasks
 
-"2. Deploy" (Robot number) and "3. Switch workspace" (Robot number, Workspace). Both run on
-exactly one robot; there is no fleet-wide switch. Command-line only: `-e robotont_rebuild=true`
+"2. Deploy" (Robot number), "3. Switch workspace" (Robot number, Workspace) and "4. Run image"
+(Robot number, Image, Name, Command, Hardware access). All run on exactly one robot; there is no
+fleet-wide switch. Command-line only: `-e robotont_rebuild=true`
 forces a build on the robot (to test a Dockerfile change before pushing), `-e
 robotont_pull_images=false` skips the pull on a robot without internet.
 
@@ -222,3 +237,6 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part B.
 | 2026-11-04 | robotont-123 | B2 "3. Switch workspace" test-talker (task 6) | **green**: `robotont-talker` up in 24 s, `ros2 topic echo --once /chatter` inside the container prints `hello from robotont-123` |
 | 2026-11-04 | robotont-123 (no mainboard, no lidar) | B4 "3. Switch workspace" driver (task 7), B6 reboot (`sudo reboot` by the user) | B4 **green**: `robotont-driver` back in 34 s, `NRestarts=0`; B6 **green**: boot 18:15:20 UTC, `robotont.service` active at 18:15:41, driver container up, same lease `10.42.0.239`, `systemd-networkd` inactive (NetworkManager alone), `robotont-123.local` resolves from the laptop, `robotont_container_up ... 1`. Not tested today (no hardware): B3, B5, B7, B8, odometry, lidar |
 | 2026-11-04 | bench network `10.42.0.0/24` (laptop `10.42.0.1`, robotont-123) | new task "0. Find robots" (`playbooks/find_robots.yml`), from a terminal and from Semaphore (task 9) | **green** both ways: probe 2 s, report `robotont-123  at  10.42.0.239` and the laptop under "SSH open but not a robot, or the fleet key was not accepted" (its unreachable line shows red in the log but the task succeeds). First Semaphore attempt found nothing: the bench firewall rule had been lost when the robot's reboot re-activated the laptop's shared profile (documented in semaphore-setup.md with a dispatcher script) |
+| 2026-11-04 | robotont-123 (no mainboard, no lidar), from Semaphore via `bootstrap run` | new task "4. Run image" (tasks 11 to 17): `traefik/whoami:v1.11.0`; `prom/node-exporter:v1.9.1`; `ghcr.io/robotont/robotont-ros:2026.09-lite` as `talker-image` with Hardware yes and a `ros2 topic pub` command; name `driver`; image `nosuch/image:1`; "3. Switch workspace" driver; "2. Deploy" re-run | **green**: each run about 30 s plus the pull, `/srv/robotont/workspaces/<name>/compose.yaml` generated, `curl http://10.42.0.239/` prints `Hostname: robotont-123`, `:9100/metrics` serves `node_uname_info{nodename="robotont-123"}`, the private image pulled through peko's login, `/chatter` carries `run-image`, 5 device cgroup rules and `/dev` mounted with Hardware yes. Reserved name refused on the controller before any change; bad image fails at the pull with the pull output in the message, the generated directory is removed and the previous workspace keeps running. Deploy re-run keeps the three generated workspaces and pulls their images ("every workspace image is present") |
+| 2026-11-04 | robotont-123, scenario "robot from the ground up" (fresh card earlier today) | regression and renumbering, all from Semaphore: "1. Setup Ubuntu" re-run; Setup Ubuntu with Robot number 77, Deploy 77, Run image on 77; Setup Ubuntu 123, Deploy 123, Switch driver; `inventory/robots/robotont-77.yaml` deleted | **green**, 4 min in all. Re-run: 31 s, no handover, one change (`/etc/hosts`, rewritten by cloud-init at the last reboot: `roles/robotont_host` now sets `preserve_hostname: true` and `manage_etc_hosts: false`). Renumber: hostname `robotont-77`, `robotont.env` with `ROBOTONT_ID=77`, `ROS_DOMAIN_ID=77`, namespace `rt77`, `/rt77/battery_state` listed inside the driver container, whoami answered `Hostname: robotont-77`; `robotont-77.local` did not resolve right after the rename (avahi re-announces later; not re-checked). Back to 123 the same way |
+| 2026-11-04 | robotont-123, scenario "existing robot added to the management": host ROS from Setup ROS (legacy) (see the docs/06 test log), hotspot and client Wi-Fi profiles, legacy unit in `/lib/systemd/system` | adoption from Semaphore, twice (before and after the patched legacy run): "1. Setup Ubuntu", "2. Deploy", "3. Switch workspace" host, driver, "4. Run image" whoami, driver | **green** both times, about 3 min each. Setup Ubuntu: no handover, `changed=3` to `4` (cloud-init hostname file, hotspot and client profiles rewritten from `.env`, `/etc/hosts`); Deploy: the legacy unit under `/lib/systemd/system` removed, `driver` kept, `changed=1`; workspace `host` runs the host bringup through `run.sh` (driver node from `~peko/ros2_ws`, serial errors from the missing mainboard); back to `driver`; whoami answers from the laptop; `driver` restored. The hotspot `robotont-123` is active on `wlan0` since the adoption (bench password in `.env`). Not tested: reboot survival of the adopted robot (needs a reboot by hand) |

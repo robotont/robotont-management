@@ -37,7 +37,8 @@ Future work may include:
 Robots are Docker-only: "1. Setup Ubuntu" prepares the host (network, hostname, udev, Wi-Fi,
 Docker Engine) and "2. Deploy" puts the *workspaces* of this repository onto a robot, pulling the
 images that GitHub Actions builds and pushes to GHCR. "3. Switch workspace" selects what runs:
-the driver, a demo, later a student environment ([docs/07](docs/07-container-runtime.md)).
+the driver, a demo, later a student environment ([docs/07](docs/07-container-runtime.md)), and
+"4. Run image" runs any container image on a robot as a workspace without touching the repository.
 Verified end to end on a Robotont 3 Lite (Raspberry Pi 5) with mainboard and lidar; the first
 CI image build is pending a push. The upstream `robotont-setup` playbooks remain as
 "Setup ROS (legacy)" for robots that keep ROS on the host (git submodules, [docs/06](docs/06-v1-reproduce-current-setup.md)).
@@ -67,9 +68,9 @@ ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspa
 ```
 robot/                     deployed to /srv/robotont: workspaces/, images/ (Dockerfiles), releases/ (pinned sources), bin/
 .github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR
-playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace (Semaphore tasks 0 to 3); setup_ros (legacy);
+playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace, run_image (Semaphore tasks 0 to 4); setup_ros (legacy);
                            status (command-line report until Grafana)
-scripts/                   helpers the playbooks call (find_robots.py: TCP probe of a network)
+scripts/                   helpers (find_robots.py: TCP probe of a network; apply_patches.sh: patches onto the submodules)
 roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
                            docker, robotont_workspaces
 inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars

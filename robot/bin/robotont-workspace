@@ -5,7 +5,7 @@
 #   robotont-workspace status               active workspace, service state, running containers
 #   robotont-workspace check <name>         validate a workspace (compose config, device declarations)
 #   robotont-workspace switch <name>        make <name> active and restart robotont.service
-#   robotont-workspace pull                 pull the images of every workspace; prints "updated" when the active one changed
+#   robotont-workspace pull [name]          pull the images of every workspace (or of one); prints "updated" when the active one changed
 #   robotont-workspace stop                 stop robotont.service (the active workspace stays selected)
 #   robotont-workspace run                  used by robotont.service: run the active workspace in the foreground
 #   robotont-workspace down                 used by robotont.service: stop the compose project
@@ -101,12 +101,13 @@ image_ids() {  # image_ids <image...>: "<image> <id or missing>" per line
   done
 }
 
-pull() {
-  local active before after name dir tmp rc=0 missing=0
+pull() {  # pull [workspace]: every workspace, or just the one named
+  local active before after name dir tmp rc=0 missing=0 names
+  if [ $# -ge 1 ]; then workspace_dir "$1" > /dev/null; names="$1"; else names="$(list)"; fi
   active="$(current)"
   tmp="$(mktemp)"
   before="$(image_ids $(images_of "$active" 2>/dev/null))"
-  for name in $(list); do
+  for name in $names; do
     dir="$WORKSPACES/$name"
     [ -f "$dir/compose.yaml" ] || continue
     echo "pull: workspace '$name'"
@@ -119,7 +120,7 @@ pull() {
   rm -f "$tmp"
   after="$(image_ids $(images_of "$active" 2>/dev/null))"
   if [ "$before" != "$after" ]; then echo "updated: images of the active workspace '$active' changed"; fi
-  for name in $(list); do
+  for name in $names; do
     [ -f "$WORKSPACES/$name/compose.yaml" ] || continue
     while read -r img id; do
       [ -n "$img" ] || continue
@@ -127,7 +128,7 @@ pull() {
     done <<< "$(image_ids $(images_of "$name"))"
   done
   [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ] && echo "pull: every workspace image is present"
-  return 0
+  [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ]
 }
 
 status() {
@@ -144,7 +145,7 @@ case "${1:-status}" in
   status)   status ;;
   check)    [ $# -eq 2 ] || die "usage: robotont-workspace check <name>"
             check "$2" ;;
-  pull)     pull ;;
+  pull)     pull "${@:2}" ;;
   switch)   [ $# -eq 2 ] || die "usage: robotont-workspace switch <name>"
             check "$2"
             printf '%s\n' "$2" > "$STATE_FILE"

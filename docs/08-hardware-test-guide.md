@@ -67,6 +67,7 @@ so Ethernet or the client Wi-Fi profile.
 | B5 Replug test | unplug the mainboard USB cable for 5 s, plug it back (robot) | odom resumes within about 10 s; `docker inspect -f '{{.RestartCount}}' robotont-driver` stays `0`; `grep device_present /var/lib/prometheus/node-exporter/robotont.prom` goes 0 then 1 | if the driver never recovers: note it; the documented fallback is `devices:` mapping plus a restart |
 | B6 Survives a reboot | `sudo reboot` (robot) | after boot `robotont-status` shows workspace `driver`, container running, topics publishing | `systemctl status docker robotont`; `journalctl -b -u robotont` |
 | B7 Release update | bump `robotont_release`, push, wait for the workflow, "2. Deploy" | the task log shows `updated: images of the active workspace`; the driver container runs the new image | `docker image ls`; the workflow run on GitHub |
+| B9 Any image | "4. Run image": N, `traefik/whoami:v1.11.0`, Hardware no | `curl http://<robot>/` from the laptop prints `Hostname: robotont-N`; `robotont-workspace status` shows `robotont-whoami`; then "3. Switch workspace" driver restores the bringup | pull fails: the robot has no internet, or a private image without `docker login` on the robot; the task removes the generated directory and the previous workspace keeps running |
 | B8 Soak | leave the robot on `driver` for a week of normal use | `systemctl show robotont -p NRestarts` low, `docker inspect -f '{{.RestartCount}}' robotont-driver` low, no complaints from students | collect the journal and open an issue |
 
 Write date, robot, image id (`docker image inspect -f '{{.Id}}' ghcr.io/robotont/robotont-ros:<release>`)
@@ -141,6 +142,14 @@ and results into the test log of docs/07.
    rules, so the Semaphore task fails at "Log in over SSH" with "Connection refused" while
    `ssh` from the laptop works. One firewall rule for the session fixes it; see "Linux host" in
    [semaphore-setup.md](semaphore-setup.md). Not an issue on a lab network or a server.
+
+10. **cloud-init rewrites `/etc/hosts` at every boot.** Imager's cloud-init keeps
+    `manage_etc_hosts: true`, so the `127.0.1.1 robotont-N` line written by "1. Setup Ubuntu" comes
+    back in cloud-init's format after a reboot (seen 2026-11-04 as one "changed" task on an
+    otherwise idempotent re-run), and a renumbered robot gets its old name back in `/etc/hosts`.
+    `roles/robotont_host` now writes `/etc/cloud/cloud.cfg.d/99-robotont-hostname.cfg`
+    (`preserve_hostname: true`, `manage_etc_hosts: false`). **To re-test**: reboot after
+    "1. Setup Ubuntu", then re-run it: no task reports `changed`.
 
 ## Troubleshooting
 
