@@ -1,0 +1,74 @@
+---
+# 0. Find robots: the fallback when robotont-N.local does not resolve (robot without avahi yet,
+# controller without mDNS such as the Semaphore container on a Linux host). Probes one network
+# for hosts with SSH open, logs in to each with the fleet key and lists every host whose
+# hostname is robotont-N with its address, which is the Robot address for "1. Setup Ubuntu".
+# Read-only: nothing is changed on any host. About 30 s for a /24.
+#
+#   Input: network, CIDR of the robots' network, for example 192.168.1.0/24 (at most /22).
+#   CLI:   ansible-playbook playbooks/find_robots.yml -e network=192.168.1.0/24
+- name: Probe the network for SSH hosts
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the input
+      ansible.builtin.assert:
+        that:
+          - network is defined
+          - network | string is match('^[0-9]{1,3}(\.[0-9]{1,3}){3}/[0-9]{1,2}$')
+        fail_msg: "Needed: network as CIDR, for example 192.168.1.0/24"
+        quiet: true
+
+    - name: Probe TCP port 22 across {{ network }}
+      ansible.builtin.command: python3 {{ playbook_dir }}/../scripts/find_robots.py {{ network | quote }}
+      register: probe
+      changed_when: false
+
+    - name: Add every SSH host as a candidate
+      ansible.builtin.add_host:
+        name: "candidate-{{ item }}"
+        groups: candidates
+        ansible_host: "{{ item }}"
+      loop: "{{ probe.stdout_lines }}"
+      changed_when: false
+
+- name: Ask every SSH host for its hostname
+  hosts: candidates
+  gather_facts: false
+  ignore_unreachable: true           # hosts that refuse the fleet key are reported, not fatal
+  vars:
+    ansible_ssh_common_args: -o ConnectTimeout=5 -o PasswordAuthentication=no
+  tasks:
+    - name: Read the hostname (no Python needed on the host)
+      ansible.builtin.raw: hostname
+      register: robot_name
+      changed_when: false
+      failed_when: false
+
+- name: Report
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Sort the answers
+      ansible.builtin.set_fact:
+        robots: >-
+          {{ robots | default([]) + ([hostvars[item].robot_name.stdout | trim ~ '  at  ' ~ hostvars[item].ansible_host]
+             if (hostvars[item].robot_name.stdout | default('') | trim) is match('^robotont-') else []) }}
+        others: >-
+          {{ others | default([]) + ([hostvars[item].ansible_host]
+             if not (hostvars[item].robot_name.stdout | default('') | trim) is match('^robotont-') else []) }}
+      loop: "{{ groups['candidates'] | default([]) }}"
+
+    - name: Robots found
+      ansible.builtin.debug:
+        msg: >-
+          {{ (['Robots in ' ~ network ~ ' (use the address as Robot address in "1. Setup Ubuntu"):']
+              + (robots | default([]) | map('regex_replace', '^', '  ') | list))
+             if robots | default([]) | length > 0 else
+             ['No robot answered in ' ~ network ~ ': check the cable or Wi-Fi, that the robot has booted,'
+              ~ ' and that the fleet key is on it (ssh-copy-id).'] }}
+
+    - name: Other SSH hosts
+      ansible.builtin.debug:
+        msg: "SSH open but not a robot, or the fleet key was not accepted: {{ others | join(', ') }}"
+      when: others | default([]) | length > 0

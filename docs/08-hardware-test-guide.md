@@ -11,7 +11,8 @@ and where to look when it fails. Record results in the test logs at the end of d
    clone from GitHub (pushing is a network action from your machine).
 2. Start Semaphore per [semaphore-setup.md](semaphore-setup.md): fill in `server/.env`, then
    `docker compose -f server/compose.yaml up -d`. The project, keys, repository, inventory,
-   environment and the four tasks are created automatically. No robot is needed for this part.
+   environment and the tasks are created automatically. No robot is needed for this part. What
+   your machine needs first is in [00-host-setup.md](00-host-setup.md).
 3. Make sure the private key named in `server/.env` opens the robots. If it does not, you will
    run `ssh-copy-id` at the robot (A1).
 4. Bring an Ethernet cable. "2. Setup ROS" switches the robot's Wi-Fi into hotspot mode and cuts
@@ -21,7 +22,8 @@ and where to look when it fails. Record results in the test logs at the end of d
 
 Write the card with Raspberry Pi Imager: Ubuntu Server 24.04 LTS (64-bit), OS customisation
 with hostname `robotont-<id>`, user `peko`, the lab Wi-Fi, SSH enabled with your public key. Boot,
-find the address (`robotont-<id>.local`, or the IP in the router). Nothing else is done by hand:
+find the address (`robotont-<id>.local`; when the name does not resolve, Semaphore's "0. Find
+robots" with the network as CIDR, or the IP in the router). Nothing else is done by hand:
 "1. Setup Ubuntu" installs NetworkManager and BlueZ, completes the network handover and reboots
 once (role `robotont_headless`), "2. Setup ROS" runs the upstream playbook. Camera = no unless the IMX500
 camera is fitted. Run over Ethernet.

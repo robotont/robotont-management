@@ -40,6 +40,7 @@ is no Limit, tag or CLI argument field.
 
 | Task | Dialog fields | What it does | Time |
 |---|---|---|---|
+| 0. Find robots | Network | only when `robotont-N.local` does not resolve: probes the network for SSH hosts, logs in with the fleet key, lists every `robotont-N` with its address. Changes nothing | 30 s |
 | 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | once per robot: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); hostname, udev symlinks, device groups, hotspot and lab Wi-Fi profiles; Docker Engine; writes `inventory/robots/robotont-N.yaml` | about 5 min on a fresh Lite robot; seconds when re-run |
 | 2. Deploy | Robot number | the workspaces of this repository ([07](07-container-runtime.md)): `/srv/robotont`, image pulls from GHCR, `robotont.service`, metrics timer; the first deploy selects the `driver` workspace, later deploys restart it when its image changed | 1 to 6 min; 15 to 40 min when the image must be built on the robot |
 | 3. Switch workspace | Robot number, Workspace | activates a workspace on one robot | 1 min |
@@ -47,9 +48,12 @@ is no Limit, tag or CLI argument field.
 
 Fields:
 
+- **Network**: the robots' network as CIDR, for example `192.168.1.0/24`, at most /22. Found
+  with `ip addr` (Linux), `ifconfig` (macOS) or `ipconfig` (Windows) on the host.
 - **Robot address**: IP or DNS name Ansible reaches the robot at. `.local` names work when the
   Docker host resolves mDNS (Docker Desktop on macOS does); on a Linux server without mDNS use an
-  IP with a DHCP reservation, a DNS name, or `extra_hosts` in `server/compose.yaml`.
+  IP with a DHCP reservation, a DNS name, or `extra_hosts` in `server/compose.yaml`. When the
+  name does not resolve, "0. Find robots" prints the address.
 - **Robot number** N (1 to 254): hostname `robotont-N`, `ROS_DOMAIN_ID` N, hotspot `192.168.200.N`.
 - **Robot type**: Robotont 3 Lite (Raspberry Pi 5) or Robotont 3 (Intel NUC); selects the group
   and its variables (release, sensors).
@@ -77,6 +81,7 @@ The same tasks without the UI, with the dialog fields as `--var` (also how the s
 ```
 docker compose -f server/compose.yaml run --rm -T bootstrap run "1. Setup Ubuntu" \
   --var robot_address=robotont-123.local --var robotont_id=123 --var robot_type=3lite --var robotont_camera=false
+docker compose -f server/compose.yaml run --rm -T bootstrap run "0. Find robots" --var network=192.168.1.0/24
 docker compose -f server/compose.yaml run --rm -T bootstrap run "2. Deploy" --var robotont_id=123
 docker compose -f server/compose.yaml run --rm -T bootstrap run "3. Switch workspace" --var robotont_id=123 --var workspace=driver
 ```
@@ -108,6 +113,22 @@ the bridge of every compose network, `docker0` alone is not enough):
 
 ```
 sudo iptables -I FORWARD 1 -i br-+ -o enp0s31f6 -j ACCEPT
+```
+
+NetworkManager re-inserts its rules above everything each time the link comes up, so the rule
+is lost whenever the robot reboots or the cable is replugged (seen 2026-11-04: the profile
+re-activated six seconds after the robot's reboot and the next task got "Connection refused"
+again). For a bench that is used more than once, let NetworkManager re-add it itself:
+
+```
+sudo tee /etc/NetworkManager/dispatcher.d/90-robotont-bench >/dev/null <<'EOT'
+#!/bin/sh
+# robotont bench: let Docker's compose bridges reach the shared Ethernet interface. NetworkManager
+# inserts its shared-mode REJECT rules every time the link comes up; this puts ours above them.
+[ "$1" = "enp0s31f6" ] && [ "$2" = "up" ] && iptables -I FORWARD 1 -i br-+ -o "$1" -j ACCEPT
+exit 0
+EOT
+sudo chmod 755 /etc/NetworkManager/dispatcher.d/90-robotont-bench
 ```
 
 ## Notes

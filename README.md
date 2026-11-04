@@ -47,7 +47,9 @@ CI image build is pending a push. The upstream `robotont-setup` playbooks remain
 Semaphore: `cp server/.env.example server/.env`, fill in the robot-side values, then
 `docker compose -f server/compose.yaml up -d`. The project, keys, inventory, environment and the
 tasks are created automatically ([docs/semaphore-setup.md](docs/semaphore-setup.md)); log in as
-`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy".
+`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy". What the host
+machine needs (Docker, git, mDNS, the network) is in [docs/00-host-setup.md](docs/00-host-setup.md);
+"0. Find robots" prints a robot's address when `robotont-N.local` does not resolve.
 
 The same from a terminal:
 
@@ -65,8 +67,9 @@ ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspa
 ```
 robot/                     deployed to /srv/robotont: workspaces/, images/ (Dockerfiles), releases/ (pinned sources), bin/
 .github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR
-playbooks/                 setup_ubuntu, deploy, switch_workspace (Semaphore tasks 1 to 3); setup_ros (legacy);
+playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace (Semaphore tasks 0 to 3); setup_ros (legacy);
                            status (command-line report until Grafana)
+scripts/                   helpers the playbooks call (find_robots.py: TCP probe of a network)
 roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
                            docker, robotont_workspaces
 inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
@@ -82,6 +85,7 @@ docs/                      analysis, mapping, plans, runbooks
 
 | Document | Content |
 |---|---|
+| [docs/00-host-setup.md](docs/00-host-setup.md) | What the management host needs on Windows, macOS and Linux: Docker, git, mDNS, the network with the robots |
 | [docs/01-repository-map.md](docs/01-repository-map.md) | Which repositories and branches matter, ROS 1 vs ROS 2, versioning conventions found |
 | [docs/02-existing-ansible-analysis.md](docs/02-existing-ansible-analysis.md) | How `robotont-setup` provisions a robot today, task by task, and what blocks fleet use |
 | [docs/03-provisioning-steps-mapping.md](docs/03-provisioning-steps-mapping.md) | Every post-install step and where it lands in the fleet roles and playbooks |

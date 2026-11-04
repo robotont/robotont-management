@@ -1,4 +1,9 @@
 [
+  {"name": "0. Find robots", "playbook": "playbooks/find_robots.yml",
+   "description": "When robotont-N.local does not resolve: probes one network for SSH hosts, logs in with the fleet key and lists every robotont-N with its address (the Robot address for 1. Setup Ubuntu). Changes nothing. About 30 s.",
+   "survey_vars": [
+     {"name": "network", "title": "Network", "type": "", "required": true,
+      "description": "the robots' network as CIDR, for example 192.168.1.0/24 (at most /22)"}]},
   {"name": "1. Setup Ubuntu", "playbook": "playbooks/setup_ubuntu.yml",
    "description": "Once per robot: SSH and sudo check, Ubuntu Server prerequisites (Lite robots), hostname, udev, Wi-Fi hotspot and lab Wi-Fi, Docker Engine, enrolment in the inventory. About 5 minutes on a fresh Lite robot. Safe to re-run.",
    "survey_vars": [
