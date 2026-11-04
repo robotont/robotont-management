@@ -33,15 +33,34 @@ in the bootstrap on every `up -d`; Prometheus re-reads the file within 30 s. So:
 
 ## The dashboard "Robotont fleet"
 
-`server/grafana/dashboards/robotont-fleet.json`, the Grafana home page. Top: robots up and down,
-alerts firing, devices claimed but absent, containers running. Then the fleet table, one row per
-robot: up, workspace, release, service active, containers, devices present and missing,
-container restarts, uptime, CPU temperature. Then the alerts firing. Below, one row per robot
-(variable `Robot`, all by default): workspace, release, service, uptime, mainboard and lidar
-present, CPU, memory, root disk, temperature, container restarts, network. Everything comes from
-`up`, `node_*` and the `robotont_*` metrics of [07](07-container-runtime.md); no new metric was
-added. Edit it in Grafana as admin, then export the JSON back into the repository (provisioned
-dashboards are not saved from the UI).
+`server/grafana/dashboards/robotont-fleet.json`, the Grafana home page. Built for the operator's
+questions, in this order:
+
+- **Top**: robots online, offline, ready to drive, alerts firing, enrolled, containers running.
+- **Robots**: one row per enrolled robot, online or not: state, **last seen** (relative time,
+  kept while the robot is offline), **ready** (reachable, service active, mainboard present),
+  workspace and release, since when the workspace is selected, when it was last deployed, service,
+  mainboard, lidar and gamepad present, container restarts, CPU temperature, root disk, uptime,
+  address. Offline rows show only state, last seen and address.
+- **Offline robots** with their last seen time, next to the **alerts firing**.
+- **One block per robot** (variable `Robot`, all by default): state, ready, workspace, release,
+  the two timestamps, uptime; every device; service, containers, restarts; CPU, memory, disk,
+  temperature, restarts and network over time.
+
+Where the values come from: `up` (Prometheus), `node_*` (node_exporter), `robotont_*` written by
+`robotont-metrics` on the robot ([07](07-container-runtime.md), Monitoring hooks: now including
+`robotont_deploy_timestamp_seconds` and `robotont_workspace_since_timestamp_seconds`, the
+modification times of a marker touched by every Deploy and of the workspace state file), and two recording rules in
+`server/prometheus/rules.yml`: `robotont_last_seen_timestamp_seconds` (the last successful
+scrape, re-emitted while the robot is down, so it survives an outage of the robot but not an
+outage of Prometheus longer than 5 minutes) and `robotont_ready`.
+
+Not available yet, because nothing exports it: battery voltage and odometry (ROS topics of the
+driver), the firmware version (the `firmware` label is empty until `/etc/robotont/firmware-version`
+is written). A small exporter inside the driver workspace would be the way to add them.
+
+Edit the dashboard in Grafana as admin, then export the JSON back into the repository
+(provisioned dashboards are not saved from the UI).
 
 ## Alerts (`server/prometheus/rules.yml`)
 
