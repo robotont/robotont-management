@@ -181,6 +181,15 @@
     - Reload systemd
     - Restart robotont-metrics timer
 
+# robotont-metrics reports this file's modification time as robotont_deploy_timestamp_seconds
+# ("deployed ... ago" on the dashboard), so it is touched on every deploy, changed or not.
+- name: Record the time of this deploy
+  ansible.builtin.file:
+    path: /etc/robotont/deployed
+    state: touch
+    mode: "0644"
+  changed_when: false
+
 - name: Apply pending unit changes before enabling
   ansible.builtin.meta: flush_handlers
 

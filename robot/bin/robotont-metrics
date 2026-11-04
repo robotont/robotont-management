@@ -19,6 +19,7 @@ PROJECT = "robotont"
 ENV_FILE = "/etc/robotont/robotont.env"
 WORKSPACE_FILE = "/etc/robotont/workspace"
 FW_FILE = "/etc/robotont/firmware-version"
+DEPLOYED_FILE = "/etc/robotont/deployed"      # touched by every "2. Deploy"
 PROM_DIR = os.environ.get("ROBOTONT_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
 STATUS_DIR = os.environ.get("ROBOTONT_STATUS_DIR", "/run/robotont")
 EXCLUSIVE = ("mainboard", "lidar", "realsense", "camera")
@@ -61,6 +62,13 @@ def read_env(path):
     except OSError:
         pass
     return env
+
+
+def file_mtime(path):
+    try:
+        return int(os.stat(path).st_mtime)
+    except OSError:
+        return 0
 
 
 def read_text(path, default=""):
@@ -153,6 +161,12 @@ def main():
         lines.append(f'robotont_device_present{labels({"device": d})} {v}')
     for d in EXCLUSIVE:
         lines.append(f'robotont_device_conflict{labels({"device": d})} {1 if len(claims.get(d, [])) > 1 else 0}')
+    # When the runtime was last deployed (marker touched by "2. Deploy"; older robots: robotont.env) and since when
+    # the active workspace has been selected (the state file is rewritten on every switch).
+    deployed = file_mtime(DEPLOYED_FILE) or file_mtime(ENV_FILE)
+    workspace_since = file_mtime(WORKSPACE_FILE)
+    lines.append(f"robotont_deploy_timestamp_seconds {deployed}")
+    lines.append(f"robotont_workspace_since_timestamp_seconds {workspace_since}")
     lines.append(f"robotont_metrics_timestamp_seconds {int(time.time())}")
     prom = "\n".join(lines) + "\n"
 
@@ -160,6 +174,7 @@ def main():
         "time": int(time.time()), "workspace": workspace, "release": release, "firmware": firmware,
         "service": service, "docker": docker_ok, "containers": containers,
         "devices": present, "claims": claims,
+        "deployed": deployed, "workspace_since": workspace_since,
     }
     try:
         os.makedirs(STATUS_DIR, exist_ok=True)
