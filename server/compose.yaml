@@ -59,7 +59,8 @@ services:
     # macOS hid this. The bootstrap only reads files and talks to the Semaphore API.
     user: "0:0"
     env_file:
-      - .env
+      - path: .env
+        required: false        # absent on a checkout that only runs the static checks
     environment:
       SEMAPHORE_URL: http://semaphore:3000
       TEMPLATES_FILE: /bootstrap/templates.json
