@@ -1,0 +1,22 @@
+# yamllint for scripts/check.sh and .github/workflows/checks.yml. Lines up to 120 characters
+# (the playbooks use long assert messages and table-like loops); no document-start marker required.
+extends: default
+ignore: |
+  external/
+  server/prometheus/targets/
+rules:
+  line-length:
+    max: 120
+    allow-non-breakable-inline-mappings: true
+  document-start: disable
+  truthy:
+    allowed-values: ["true", "false", "yes", "no"]   # "yes"/"no" appear in survey values and upstream vars
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  braces:
+    max-spaces-inside: 1
+  octal-values:                 # required by ansible-lint; modes are quoted strings here anyway
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

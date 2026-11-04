@@ -1,0 +1,36 @@
+# Static checks on every push and pull request: the same scripts/check.sh a developer runs locally
+# (playbook syntax, yamllint, ansible-lint, shellcheck, py_compile, JSON, compose config, promtool,
+# line endings). No robot and no secrets involved.
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the tools
+        run: |
+          python3 -m pip install --disable-pip-version-check -q \
+            "ansible-core>=2.16,<2.19" "ansible-lint>=24,<26" "yamllint>=1.35"
+          ansible-galaxy collection install -q community.general ansible.posix
+          sudo apt-get install -y -q shellcheck
+
+      - name: Run the checks
+        run: scripts/check.sh

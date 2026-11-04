@@ -1,0 +1,4 @@
+# LF everywhere: the repository is used from Linux, macOS and Windows (docs/00-host-setup.md).
+* text=auto eol=lf
+*.png binary
+*.jpg binary

@@ -1,0 +1,14 @@
+# ansible-lint for scripts/check.sh and .github/workflows/checks.yml (profile "moderate").
+# The upstream playbooks under external/ are not ours and are not linted.
+profile: moderate
+exclude_paths:
+  - external/
+  - patches/
+  - .cache/
+  - server/
+  - test/
+skip_list:
+  - var-naming[no-role-prefix]   # role variables keep the project-wide robotont_* names on purpose
+  - yaml[line-length]            # yamllint runs separately with max 120
+  - name[casing]                 # task names start with the thing they do ("robotont.service ...")
+  - command-instead-of-module    # polling `systemctl is-active` and `git apply` have no module equivalent
