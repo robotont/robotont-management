@@ -75,6 +75,21 @@ services:
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
     entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 
+  # Writes server/networks.json, the IPv4 networks of this machine's interfaces, for the Network
+  # dropdown of "0. Find robots" (the bootstrap reads it). Host networking is what makes the
+  # interfaces visible; on Docker Desktop that is the VM, whose network the script filters out, so
+  # the dropdown there holds only the networks of enrolled robots. Allowed to fail.
+  host-networks:
+    image: semaphoreui/semaphore:v2.19.14
+    container_name: robotont-host-networks
+    network_mode: host
+    restart: "no"
+    user: "0:0"
+    volumes:
+      - ..:/repositories/robotont-management
+    entrypoint: ["python3", "/repositories/robotont-management/scripts/host_networks.py",
+                 "/repositories/robotont-management/server/networks.json"]
+
   # Monitoring (notes/10-monitoring.md): Prometheus scrapes node_exporter on every robot listed in
   # prometheus/targets/robots.json (rendered from inventory/robots/ by the bootstrap and by
   # "1. Setup Ubuntu"); Grafana serves the provisioned "Robotont fleet" dashboard on port 3001.

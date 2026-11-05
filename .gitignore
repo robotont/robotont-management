@@ -14,3 +14,6 @@ __pycache__/
 
 # Prometheus targets rendered from inventory/robots/ (scripts/prometheus_targets.py)
 server/prometheus/targets/*.json
+
+# Host networks for the dropdown of 0. Find robots (scripts/host_networks.py)
+server/networks.json

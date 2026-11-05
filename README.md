@@ -138,8 +138,8 @@ same `up -d` command again after you change `server/.env` or add a workspace.
 
 1. Write the card as described above, put it into the robot, and boot it on a network with internet.
 2. Wait about two minutes, then check that `robotont-N.local` answers to `ping`. If it does not,
-   run the task "0. Find robots" with your network, for example `192.168.1.0/24`, and use the
-   address it prints.
+   run the task "0. Find robots": pick your network from the dropdown, or type it in "Other
+   network" (for example `192.168.1.0/24`), and use the address the task prints.
 3. Run "1. Setup Ubuntu" with the address, the robot number, the robot type and whether the
    camera is fitted. The task takes about five minutes and reboots the robot once.
 4. Run "2. Deploy" with the robot number. The robot pulls its images and starts the `driver`
@@ -152,7 +152,7 @@ the list of robots is shared.
 
 | You want to | Task | Fields |
 |---|---|---|
-| Find a robot whose name does not resolve | 0. Find robots | Network as CIDR |
+| Find a robot whose name does not resolve | 0. Find robots | Network (a dropdown of your computer's networks), Other network |
 | Prepare a new robot, or change its number | 1. Setup Ubuntu | Address, Robot number, Robot type, Camera |
 | Install or update the software | 2. Deploy | Robot number |
 | Run the driver, a demo or a test | 3. Switch workspace | Robot number, Workspace |
@@ -186,7 +186,7 @@ workspace". The dropdown in Semaphore lists the directories after the next `up -
 
 | Symptom | Likely cause |
 |---|---|
-| `robotont-N.local` never answers | The robot had no internet at its first boot. Use "0. Find robots" and the address; "1. Setup Ubuntu" installs the name service. |
+| `robotont-N.local` never answers | The robot had no internet at its first boot. Use "0. Find robots" and the address; "1. Setup Ubuntu" installs the name service. On macOS and Windows the dropdown cannot list your computer's networks: type the network in "Other network". |
 | A task says "Connection refused" or "unreachable" | Wrong address, the robot is off, or on a Linux bench the firewall of the shared connection. Check `ssh peko@<address>` from your computer first. |
 | "1. Setup Ubuntu" fails at the Docker install | A fresh robot is still installing its own updates. Wait a few minutes and run the task again. |
 | "2. Deploy" fails at the pull | The robot has no internet, or the image package is private and the robot is not logged in. |

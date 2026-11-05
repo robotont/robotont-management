@@ -46,7 +46,7 @@ is no Limit, tag or CLI argument field.
 
 | Task | Dialog fields | What it does | Time |
 |---|---|---|---|
-| 0. Find robots | Network | only when `robotont-N.local` does not resolve: probes the network for SSH hosts, logs in with the fleet key, lists every `robotont-N` with its address. Changes nothing | 30 s |
+| 0. Find robots | Network (dropdown), Other network | only when `robotont-N.local` does not resolve: probes the network for SSH hosts, logs in with the fleet key, lists every `robotont-N` with its address. Changes nothing | 30 s |
 | 1. Setup Ubuntu | Robot address, Robot number, Robot type, Camera | once per robot: SSH and sudo check; on Lite robots the Ubuntu Server prerequisites (updates suite, NetworkManager, BlueZ, avahi, network handover and one reboot); hostname, udev symlinks, device groups, hotspot and lab Wi-Fi profiles; Docker Engine; node_exporter; writes `inventory/robots/robotont-N.yaml` and refreshes the Prometheus targets | about 5 min on a fresh Lite robot; seconds when re-run |
 | 2. Deploy | Robot number | the workspaces of this repository ([07](07-container-runtime.md)): `/srv/robotont`, image pulls from GHCR, `robotont.service`, metrics timer; the first deploy selects the `driver` workspace, later deploys restart it when its image changed | 1 to 6 min; 15 to 40 min when the image must be built on the robot |
 | 3. Switch workspace | Robot number, Workspace | activates a workspace on one robot | 1 min |
@@ -55,8 +55,13 @@ is no Limit, tag or CLI argument field.
 
 Fields:
 
-- **Network**: the robots' network as CIDR, for example `192.168.1.0/24`, at most /22. Found
-  with `ip addr` (Linux), `ifconfig` (macOS) or `ipconfig` (Windows) on the host.
+- **Network**: a dropdown filled by the bootstrap on every `up -d`: the IPv4 networks of the
+  Docker host's interfaces (`server/networks.json`, written by the compose service
+  `host-networks` with host networking; `scripts/host_networks.py` skips loopback, Docker,
+  bridge, veth, Tailscale and Docker Desktop's VM network, and shrinks anything larger than
+  /22 to the /24 of the address) plus the /24 of every enrolled robot. On Docker Desktop the
+  host networking shows the VM, so only the robots' networks appear there.
+- **Other network** (optional): a CIDR typed by hand, at most /22; it overrides the dropdown.
 - **Robot address**: IP or DNS name Ansible reaches the robot at. `.local` names work when the
   Docker host resolves mDNS (Docker Desktop on macOS does); on a Linux server without mDNS use an
   IP with a DHCP reservation, a DNS name, or `extra_hosts` in `server/compose.yaml`. When the

@@ -115,6 +115,40 @@ def ensure(api, kind, list_path, name, body, create_path=None, item_path=None):
     return created["id"]
 
 
+def network_choices():
+    """Dropdown entries for "0. Find robots": the interfaces of this machine, then the networks the
+    enrolled robots are on. Each entry's value is the CIDR the playbook scans."""
+    choices, seen = [], set()
+    path = os.path.join(REPO_PATH, "server", "networks.json")
+    try:
+        with open(path) as f:
+            for item in json.load(f):
+                if item["network"] not in seen:
+                    seen.add(item["network"])
+                    choices.append({"name": f"{item['interface']}: {item['network']}", "value": item["network"]})
+    except (OSError, ValueError, KeyError):
+        pass
+    import glob
+    import ipaddress
+    import re
+    for robot_file in sorted(glob.glob(os.path.join(REPO_PATH, "inventory", "robots", "*.yaml"))):
+        try:
+            text = open(robot_file).read()
+            address = re.search(r"ansible_host:\s*([0-9.]+)", text)
+            if not address:
+                continue
+            network = str(ipaddress.ip_interface(address.group(1) + "/24").network)
+            if network not in seen:
+                seen.add(network)
+                robot = os.path.basename(robot_file).rsplit(".", 1)[0]
+                choices.append({"name": f"robots: {network} ({robot})", "value": network})
+        except (OSError, ValueError):
+            continue
+    if not choices:
+        choices.append({"name": "none found: use the Other network field", "value": "0.0.0.0/32"})
+    return choices
+
+
 def configure(api):
     print(f"bootstrap: configuring {URL} as {ADMIN}")
     pid = ensure(api, "project", "/api/projects", PROJECT, {"name": PROJECT, "alert": False},
@@ -162,11 +196,18 @@ def configure(api):
                         if not d.startswith("_") and os.path.isdir(os.path.join(WORKSPACES_DIR, d))
                         and (os.path.exists(os.path.join(WORKSPACES_DIR, d, "compose.yaml"))
                              or os.path.exists(os.path.join(WORKSPACES_DIR, d, "run.sh"))))
+    # "@networks" in a dropdown = this machine's networks (server/networks.json, written by the
+    # host-networks service) plus the /24 of every enrolled robot. At least one entry is needed for
+    # a dropdown; without any, a placeholder tells the operator to use the free-text field.
+    network_values = network_choices()
     for t in templates:
         for var in t.get("survey_vars", []):
             if var.get("values") == "@workspaces":
                 var["values"] = [{"name": w, "value": w} for w in workspaces]
                 print(f"  workspaces   {', '.join(workspaces)}")
+            if var.get("values") == "@networks":
+                var["values"] = network_values
+                print(f"  networks     {', '.join(v['name'] for v in network_values)}")
     for t in templates:
         ensure(api, "template", f"/api/project/{pid}/templates", t["name"], {
             "project_id": pid, "name": t["name"], "app": "ansible", "playbook": t["playbook"],
