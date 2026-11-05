@@ -207,6 +207,25 @@ def run_template(api, name, variables):
     sys.exit(0 if status == "success" else 1)
 
 
+def prepare_repository():
+    """The Semaphore container (uid 1001) writes two things into the bind-mounted repository: the
+    enrolment files (1. Setup Ubuntu) and the Prometheus targets. On Linux the bind mount keeps the
+    host's ownership, so make just those two directories writable for everyone. This one-shot runs
+    as root and also gives files written earlier by the container back to the repository owner."""
+    owner = os.stat(REPO_PATH)
+    for rel in (("inventory", "robots"), ("server", "prometheus", "targets")):
+        path = os.path.join(REPO_PATH, *rel)
+        try:
+            os.makedirs(path, exist_ok=True)
+            os.chmod(path, 0o777)
+            # files the container wrote earlier belong to its uid; give them back to the owner
+            for name in os.listdir(path):
+                os.chown(os.path.join(path, name), owner.st_uid, owner.st_gid)
+            print(f"  repository   {'/'.join(rel)}: writable for the Semaphore container")
+        except OSError as exc:
+            print(f"  repository   {'/'.join(rel)}: cannot change permissions ({exc}); enrolment may fail on Linux")
+
+
 def apply_patches():
     """Patch the submodule checkouts (patches/<submodule>/*.patch) so that the statically imported
     legacy playbooks are already patched when Semaphore parses them. Idempotent; see
@@ -262,7 +281,8 @@ def main(argv):
             rest = rest[2:]
         run_template(api, name, variables)
     else:
-        apply_patches()
+        prepare_repository()
+    apply_patches()
     prometheus_targets()
     configure(api)
 

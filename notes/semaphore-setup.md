@@ -114,9 +114,11 @@ Verified 2026-11-04 on Ubuntu 24.04 with Docker Engine 29. Three differences fro
 
 - The `bootstrap` service runs as root (`user: "0:0"` in `server/compose.yaml`): a bind mount keeps
   the host owner and `0600` mode of the SSH key, which the image's user (uid 1001) cannot read.
-- The container writes the enrolment file into the bind-mounted repository as uid 1001. Give it
-  access once, from the repository root (files stay owned by you; ACLs are invisible to git):
-  `setfacl -R -m u:1001:rwX . && find . -type d -exec setfacl -m d:u:1001:rwX {} +`
+- The container writes the enrolment files and the Prometheus targets into the bind-mounted
+  repository as uid 1001. The bootstrap (root) makes exactly those two directories world-writable (no sticky
+  bit: a re-enrolment replaces a file you own) (`inventory/robots`, `server/prometheus/targets`) on every `up -d`, and
+  gives files the container wrote (owned by uid 1001 until then) back to you. Before 2026-11-05 this
+  needed a manual ACL (`setfacl -R -m u:1001:rwX .`); it does not any more.
 - `robotont-N.local` does not resolve inside the container (no mDNS in Docker's resolver). Give
   "1. Setup Ubuntu" the robot's IP address as the Robot address; the enrolment file then carries
   the IP, so keep it stable (DHCP reservation) or re-run Setup Ubuntu after it changes. The

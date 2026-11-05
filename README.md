@@ -41,20 +41,86 @@ and announces its name on the network, you run one task that prepares the operat
 records the robot in the list, and you run a second task that installs the software. From then on
 the robot starts its active workspace at every boot by itself.
 
-## What you need
+## Prerequisites
 
-| Item | Details |
-|---|---|
-| A management computer | Docker with Compose (Docker Desktop on Windows or macOS, Docker Engine on Linux) and git. Nothing else; Ansible runs inside a container. |
-| A network shared with the robots | The lab Wi-Fi or a router with DHCP is the normal case. A cable from the robot into your computer works for a bench, with connection sharing enabled on the computer. A phone hotspot does not work: it isolates its clients from each other. |
-| Name resolution | Robots announce themselves as `robotont-N.local`. Windows and macOS resolve such names by default. On Linux install `avahi-daemon` and `libnss-mdns`. If the name does not resolve, the task "0. Find robots" prints the address instead. |
-| The robot card | Written with Raspberry Pi Imager: Ubuntu Server 24.04 LTS (64-bit), hostname `robotont-N`, user `peko` with a password, your public SSH key, optionally the lab Wi-Fi. The first boot must have internet, otherwise the name service is never installed. |
-| One secrets file | `server/.env`: the path to your SSH key, the `peko` password, the Wi-Fi password of the robot hotspot and the lab Wi-Fi. It is never committed. |
-| Access to the images | Until the image package on GitHub is public, log in once per robot with `docker login ghcr.io` as `peko` and a read-only token. |
+The management computer needs Docker with Compose and git. Nothing else: Ansible runs inside a
+container. Pick your platform.
 
-Credentials: Semaphore and Grafana open with `admin` / `admin` and are reachable only from the
-management computer unless you set `SEMAPHORE_BIND=0.0.0.0` in `server/.env`. The `peko` password
-is the only robot secret, and only the maintainer needs it.
+### Linux (Ubuntu 24.04)
+
+```
+sudo apt update
+sudo apt install -y git docker.io docker-compose-v2 avahi-daemon libnss-mdns
+sudo usermod -aG docker $USER
+```
+
+Log out and in again, then check:
+
+```
+docker compose version
+```
+
+`avahi-daemon` and `libnss-mdns` let your computer resolve the robots' names (`robotont-N.local`).
+Ubuntu Desktop has them already; Ubuntu Server does not.
+
+### macOS
+
+1. Install Docker Desktop from https://www.docker.com/products/docker-desktop/ and start it.
+2. Install git: open Terminal and run `git --version`; macOS offers to install the command line tools.
+3. Check in Terminal:
+
+```
+docker compose version
+```
+
+Robot names resolve on macOS without extra software.
+
+### Windows 10 or 11
+
+1. Open PowerShell as administrator and run `wsl --install`. Restart the computer and create the
+   Linux user when the Ubuntu window asks for it.
+2. Install Docker Desktop from https://www.docker.com/products/docker-desktop/. In its settings,
+   under Resources, WSL integration, enable the Ubuntu distribution.
+3. Open the Ubuntu terminal (search for "Ubuntu" in the Start menu) and run:
+
+```
+sudo apt update
+sudo apt install -y git
+docker compose version
+```
+
+Work inside the Ubuntu terminal from now on, including the `git clone` below, and keep the
+repository in the Linux home directory, not under `/mnt/c`. Robot names resolve on Windows
+without extra software.
+
+### Manual steps
+
+These are the only steps done by hand. Everything after them is a task in Semaphore.
+
+- **Prepare the SD card** with Raspberry Pi Imager:
+  - operating system: Ubuntu Server 24.04 LTS (64-bit);
+  - hostname: `robotont-N`, where N is the robot number (1 to 254);
+  - user: `peko`, with the password you choose (`peko:<password>`);
+  - SSH: enabled, with public key authentication and your public key;
+  - Wi-Fi: the lab network, if there is one.
+- **Boot the robot on a network with internet**: the lab Wi-Fi, or a cable to a router. The
+  first boot installs the name service; without internet the robot never answers to
+  `robotont-N.local`.
+- **Write the secrets file** `server/.env` on the management computer:
+  - the path to your private SSH key;
+  - the `peko` password;
+  - the Wi-Fi password of the robot hotspot, and the lab Wi-Fi name and password.
+  The file is never committed.
+- **Log the robot in to the image registry**, as long as the image package on GitHub is private:
+  `ssh peko@robotont-N.local docker login ghcr.io`, with a read-only token. Once per robot, after
+  "1. Setup Ubuntu".
+- **Use a shared network.** The lab Wi-Fi or a router with DHCP is the normal case. A cable from
+  the robot into your computer works on a bench if you enable connection sharing on the computer.
+  A phone hotspot does not work: it isolates its clients from each other.
+
+Semaphore and Grafana open with `admin` / `admin`. They are reachable only from the management
+computer unless you set `SEMAPHORE_BIND=0.0.0.0` in `server/.env`. The `peko` password is the
+only robot secret, and only the maintainer needs it.
 
 ## Start
 
@@ -139,12 +205,3 @@ scripts/          helpers, including check.sh, the static checks that also run i
 external/         the upstream robotont-setup playbooks (submodules), kept for old robots
 notes/            working notes of the project, not needed to use it
 ```
-
-## Glossary
-
-- **Robot number N**: the number in the hostname `robotont-N`; also the ROS domain and the hotspot address.
-- **Workspace**: what a robot runs; a directory with a compose file; one is active at a time.
-- **Release**: a pinned set of software sources, for example `2026.09-lite`; also the image tag.
-- **Task**: one Semaphore job that works on one robot.
-- **Enrolment**: the file under `inventory/robots/` that "1. Setup Ubuntu" writes for a robot.
-- **Hotspot**: the robot's own Wi-Fi network `robotont-N`, used when no lab Wi-Fi is in range.
