@@ -205,9 +205,10 @@ repository under `robot/stacks/`.
 
 ## The dashboard
 
-Grafana lists every robot with its state and shows four alerts: robot down, service not active,
-a device claimed but not present, and a device claimed twice. Alerts are shown on the page, not
-sent anywhere.
+Grafana shows how many robots are online, a list of every robot with its state, and for each
+robot its status, uptime and containers, like `docker ps`. Four alerts are shown on the page,
+not sent anywhere: robot down, service not active, a device claimed but not present, and a
+device claimed twice.
 
 ## Writing a stack
 

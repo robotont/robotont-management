@@ -36,16 +36,22 @@ in the bootstrap on every `up -d`; Prometheus re-reads the file within 30 s. So:
 `server/grafana/dashboards/robotont-fleet.json`, the Grafana home page. Built for the operator's
 questions, in this order:
 
-- **Top**: robots online, offline, ready to drive, alerts firing, enrolled, containers running.
+- **Top**: robots online.
 - **Robots**: one row per enrolled robot, online or not: state, **last seen** (relative time,
   kept while the robot is offline), **ready** (reachable, service active, mainboard present),
   stack and release, since when the stack is selected, when it was last deployed, service,
   mainboard, lidar and gamepad present, container restarts, CPU temperature, root disk, uptime,
   address. Offline rows show only state, last seen and address.
-- **Offline robots** with their last seen time, next to the **alerts firing**.
-- **One block per robot** (variable `Robot`, all by default): state, ready, stack, release,
-  the two timestamps, uptime; every device; service, containers, restarts; CPU, memory, disk,
-  temperature, restarts and network over time.
+- **Alerts firing**.
+- **One block per robot** (variable `Robot`, all by default): status, uptime, and the
+  container list in the style of `docker ps`: name, state, started, restarts, image, devices.
+  Built from `robotont_container_info` (labels name, image, state, devices),
+  `robotont_container_started_timestamp_seconds` and `robotont_container_restarts_total`,
+  joined on the container name.
+
+Simplified on 2026-11-05 at Leonid's request (before: six counters, an offline list, and per
+robot 15 stats and 6 graphs). The `node_*` series are still scraped, so the graphs can come back
+when they are needed.
 
 Where the values come from: `up` (Prometheus), `node_*` (node_exporter), `robotont_*` written by
 `robotont-metrics` on the robot ([07](07-container-runtime.md), Monitoring hooks: now including

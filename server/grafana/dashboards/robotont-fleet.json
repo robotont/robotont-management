@@ -9,7 +9,7 @@
   "graphTooltip": 1,
   "refresh": "30s",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "time": {
     "from": "now-1h",
     "to": "now"
@@ -105,259 +105,6 @@
             ]
           }
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 2,
-      "type": "stat",
-      "title": "Robots offline",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "count(up{job=\"robots\"} == 0) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Ready to drive",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "count(robotont_ready) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Alerts firing",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Enrolled robots",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "count(up{job=\"robots\"}) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Containers running",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 0,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(robotont_container_up) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
         "overrides": []
       }
     },
@@ -1279,330 +1026,6 @@
       }
     },
     {
-      "id": 8,
-      "type": "table",
-      "title": "Offline robots",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 10,
-        "h": 6
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "up{job=\"robots\"} == 0",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_last_seen_timestamp_seconds * 1000",
-          "refId": "B",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false,
-          "format": "table"
-        }
-      ],
-      "transformations": [
-        {
-          "id": "joinByField",
-          "options": {
-            "byField": "instance",
-            "mode": "inner"
-          }
-        },
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true,
-              "__name__": true,
-              "job": true,
-              "robotont_id": true,
-              "generation": true,
-              "Time 1": true,
-              "__name__ 1": true,
-              "job 1": true,
-              "instance 1": true,
-              "robotont_id 1": true,
-              "generation 1": true,
-              "device 1": true,
-              "stack 1": true,
-              "release 1": true,
-              "service 1": true,
-              "type 1": true,
-              "mountpoint 1": true,
-              "fstype 1": true,
-              "zone 1": true,
-              "Time 2": true,
-              "__name__ 2": true,
-              "job 2": true,
-              "instance 2": true,
-              "robotont_id 2": true,
-              "generation 2": true,
-              "device 2": true,
-              "stack 2": true,
-              "release 2": true,
-              "service 2": true,
-              "type 2": true,
-              "mountpoint 2": true,
-              "fstype 2": true,
-              "zone 2": true,
-              "Time 3": true,
-              "__name__ 3": true,
-              "job 3": true,
-              "instance 3": true,
-              "robotont_id 3": true,
-              "generation 3": true,
-              "device 3": true,
-              "stack 3": true,
-              "release 3": true,
-              "service 3": true,
-              "type 3": true,
-              "mountpoint 3": true,
-              "fstype 3": true,
-              "zone 3": true,
-              "Time 4": true,
-              "__name__ 4": true,
-              "job 4": true,
-              "instance 4": true,
-              "robotont_id 4": true,
-              "generation 4": true,
-              "device 4": true,
-              "stack 4": true,
-              "release 4": true,
-              "service 4": true,
-              "type 4": true,
-              "mountpoint 4": true,
-              "fstype 4": true,
-              "zone 4": true,
-              "Time 5": true,
-              "__name__ 5": true,
-              "job 5": true,
-              "instance 5": true,
-              "robotont_id 5": true,
-              "generation 5": true,
-              "device 5": true,
-              "stack 5": true,
-              "release 5": true,
-              "service 5": true,
-              "type 5": true,
-              "mountpoint 5": true,
-              "fstype 5": true,
-              "zone 5": true,
-              "Time 6": true,
-              "__name__ 6": true,
-              "job 6": true,
-              "instance 6": true,
-              "robotont_id 6": true,
-              "generation 6": true,
-              "device 6": true,
-              "stack 6": true,
-              "release 6": true,
-              "service 6": true,
-              "type 6": true,
-              "mountpoint 6": true,
-              "fstype 6": true,
-              "zone 6": true,
-              "Time 7": true,
-              "__name__ 7": true,
-              "job 7": true,
-              "instance 7": true,
-              "robotont_id 7": true,
-              "generation 7": true,
-              "device 7": true,
-              "stack 7": true,
-              "release 7": true,
-              "service 7": true,
-              "type 7": true,
-              "mountpoint 7": true,
-              "fstype 7": true,
-              "zone 7": true,
-              "Time 8": true,
-              "__name__ 8": true,
-              "job 8": true,
-              "instance 8": true,
-              "robotont_id 8": true,
-              "generation 8": true,
-              "device 8": true,
-              "stack 8": true,
-              "release 8": true,
-              "service 8": true,
-              "type 8": true,
-              "mountpoint 8": true,
-              "fstype 8": true,
-              "zone 8": true,
-              "Time 9": true,
-              "__name__ 9": true,
-              "job 9": true,
-              "instance 9": true,
-              "robotont_id 9": true,
-              "generation 9": true,
-              "device 9": true,
-              "stack 9": true,
-              "release 9": true,
-              "service 9": true,
-              "type 9": true,
-              "mountpoint 9": true,
-              "fstype 9": true,
-              "zone 9": true,
-              "Time 10": true,
-              "__name__ 10": true,
-              "job 10": true,
-              "instance 10": true,
-              "robotont_id 10": true,
-              "generation 10": true,
-              "device 10": true,
-              "stack 10": true,
-              "release 10": true,
-              "service 10": true,
-              "type 10": true,
-              "mountpoint 10": true,
-              "fstype 10": true,
-              "zone 10": true,
-              "Time 11": true,
-              "__name__ 11": true,
-              "job 11": true,
-              "instance 11": true,
-              "robotont_id 11": true,
-              "generation 11": true,
-              "device 11": true,
-              "stack 11": true,
-              "release 11": true,
-              "service 11": true,
-              "type 11": true,
-              "mountpoint 11": true,
-              "fstype 11": true,
-              "zone 11": true,
-              "Time 12": true,
-              "__name__ 12": true,
-              "job 12": true,
-              "instance 12": true,
-              "robotont_id 12": true,
-              "generation 12": true,
-              "device 12": true,
-              "stack 12": true,
-              "release 12": true,
-              "service 12": true,
-              "type 12": true,
-              "mountpoint 12": true,
-              "fstype 12": true,
-              "zone 12": true,
-              "Time 13": true,
-              "__name__ 13": true,
-              "job 13": true,
-              "instance 13": true,
-              "robotont_id 13": true,
-              "generation 13": true,
-              "device 13": true,
-              "stack 13": true,
-              "release 13": true,
-              "service 13": true,
-              "type 13": true,
-              "mountpoint 13": true,
-              "fstype 13": true,
-              "zone 13": true,
-              "Time 14": true,
-              "__name__ 14": true,
-              "job 14": true,
-              "instance 14": true,
-              "robotont_id 14": true,
-              "generation 14": true,
-              "device 14": true,
-              "stack 14": true,
-              "release 14": true,
-              "service 14": true,
-              "type 14": true,
-              "mountpoint 14": true,
-              "fstype 14": true,
-              "zone 14": true,
-              "Time 15": true,
-              "__name__ 15": true,
-              "job 15": true,
-              "instance 15": true,
-              "robotont_id 15": true,
-              "generation 15": true,
-              "device 15": true,
-              "stack 15": true,
-              "release 15": true,
-              "service 15": true,
-              "type 15": true,
-              "mountpoint 15": true,
-              "fstype 15": true,
-              "zone 15": true,
-              "Value #A": true,
-              "robot 2": true,
-              "robot 3": true,
-              "robot 4": true,
-              "robot 5": true,
-              "robot 6": true,
-              "robot 7": true,
-              "robot 8": true,
-              "robot 9": true,
-              "robot 10": true,
-              "robot 11": true,
-              "robot 12": true,
-              "robot 13": true,
-              "robot 14": true,
-              "robot 15": true
-            },
-            "renameByName": {
-              "robot 1": "robot",
-              "Value #B": "last seen",
-              "instance": "address"
-            },
-            "indexByName": {
-              "robot 1": 0,
-              "Value #B": 1,
-              "instance": 2
-            }
-          }
-        }
-      ],
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "noValue": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "last seen"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "dateTimeFromNow"
-              },
-              {
-                "id": "noValue",
-                "value": "never"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "id": 9,
       "type": "table",
       "title": "Alerts firing",
@@ -1611,10 +1034,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 10,
+        "x": 0,
         "y": 14,
-        "w": 14,
-        "h": 6
+        "w": 24,
+        "h": 5
       },
       "targets": [
         {
@@ -1687,7 +1110,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 19,
         "w": 24,
         "h": 1
       },
@@ -1697,16 +1120,16 @@
     {
       "id": 11,
       "type": "stat",
-      "title": "State",
+      "title": "Status",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 21,
+        "y": 20,
         "w": 3,
-        "h": 4
+        "h": 6
       },
       "targets": [
         {
@@ -1767,262 +1190,6 @@
       }
     },
     {
-      "id": 12,
-      "type": "stat",
-      "title": "Ready to drive",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 3,
-        "y": 21,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_ready{robot=\"$robot\"} or (up{job=\"robots\",robot=\"$robot\"} * 0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 13,
-      "type": "stat",
-      "title": "Stack",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 21,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_stack_info{robot=\"$robot\"}",
-          "refId": "A",
-          "legendFormat": "{{stack}}",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "name",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 14,
-      "type": "stat",
-      "title": "Release",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 10,
-        "y": 21,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_stack_info{robot=\"$robot\"}",
-          "refId": "A",
-          "legendFormat": "{{release}}",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "name",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 15,
-      "type": "stat",
-      "title": "Stack since",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 14,
-        "y": 21,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_stack_since_timestamp_seconds{robot=\"$robot\"} * 1000",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dateTimeFromNow"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 16,
-      "type": "stat",
-      "title": "Deployed",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 17,
-        "y": 21,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_deploy_timestamp_seconds{robot=\"$robot\"} * 1000",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "dateTimeFromNow"
-        },
-        "overrides": []
-      }
-    },
-    {
       "id": 17,
       "type": "stat",
       "title": "Uptime",
@@ -2031,10 +1198,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 20,
-        "y": 21,
-        "w": 4,
-        "h": 4
+        "x": 3,
+        "y": 20,
+        "w": 3,
+        "h": 6
       },
       "targets": [
         {
@@ -2064,168 +1231,24 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "dtdurations"
         },
         "overrides": []
       }
     },
     {
-      "id": 18,
-      "type": "stat",
-      "title": "Mainboard",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_device_present{robot=\"$robot\",device=\"mainboard\"}",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 19,
-      "type": "stat",
-      "title": "Lidar",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 3,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_device_present{robot=\"$robot\",device=\"lidar\"}",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 20,
-      "type": "stat",
-      "title": "Gamepad",
+      "id": 32,
+      "type": "table",
+      "title": "Containers (docker ps)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 6,
-        "y": 25,
-        "w": 3,
-        "h": 4
+        "y": 20,
+        "w": 18,
+        "h": 6
       },
       "targets": [
         {
@@ -2233,649 +1256,257 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "robotont_device_present{robot=\"$robot\",device=\"gamepad\"}",
+          "expr": "robotont_container_info{robot=\"$robot\"}",
           "refId": "A",
           "legendFormat": "__auto",
           "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 21,
-      "type": "stat",
-      "title": "Camera",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 9,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_device_present{robot=\"$robot\",device=\"camera\"}",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 22,
-      "type": "stat",
-      "title": "RealSense",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_device_present{robot=\"$robot\",device=\"realsense\"}",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "no"
-                },
-                "1": {
-                  "text": "yes"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 23,
-      "type": "stat",
-      "title": "Service",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 15,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "robotont_service_active{robot=\"$robot\"}",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          },
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "inactive"
-                },
-                "1": {
-                  "text": "active"
-                }
-              }
-            }
-          ]
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 24,
-      "type": "stat",
-      "title": "Containers",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 18,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(robotont_container_up{robot=\"$robot\"}) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      }
-    },
-    {
-      "id": 25,
-      "type": "stat",
-      "title": "Restarts",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 21,
-        "y": 25,
-        "w": 3,
-        "h": 4
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(robotont_container_restarts_total{robot=\"$robot\"}) or vector(0)",
-          "refId": "A",
-          "legendFormat": "__auto",
-          "instant": true,
-          "range": false
-        }
-      ],
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "auto",
-        "justifyMode": "center"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 3
-              }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 26,
-      "type": "timeseries",
-      "title": "CPU %",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 29,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "100 - avg(rate(node_cpu_seconds_total{robot=\"$robot\",mode=\"idle\"}[2m])) * 100",
-          "refId": "A",
-          "legendFormat": "cpu"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
-          },
-          "unit": "percent",
-          "min": 0,
-          "max": 100
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 27,
-      "type": "timeseries",
-      "title": "Memory used %",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 29,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "(1 - node_memory_MemAvailable_bytes{robot=\"$robot\"} / node_memory_MemTotal_bytes{robot=\"$robot\"}) * 100",
-          "refId": "A",
-          "legendFormat": "memory"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
-          },
-          "unit": "percent",
-          "min": 0,
-          "max": 100
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 28,
-      "type": "timeseries",
-      "title": "Root disk used %",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 29,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "(1 - node_filesystem_avail_bytes{robot=\"$robot\",mountpoint=\"/\"} / node_filesystem_size_bytes{robot=\"$robot\",mountpoint=\"/\"}) * 100",
-          "refId": "A",
-          "legendFormat": "disk"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
-          },
-          "unit": "percent",
-          "min": 0,
-          "max": 100
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 29,
-      "type": "timeseries",
-      "title": "Temperature",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 36,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "node_thermal_zone_temp{robot=\"$robot\"}",
-          "refId": "A",
-          "legendFormat": "{{type}}{{chip}}"
+          "range": false,
+          "format": "table"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "node_hwmon_temp_celsius{robot=\"$robot\",chip=~\"coretemp.*\"}",
+          "expr": "robotont_container_started_timestamp_seconds{robot=\"$robot\"} * 1000",
           "refId": "B",
-          "legendFormat": "{{type}}{{chip}}"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "format": "table"
         },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
-          },
-          "unit": "celsius"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "id": 30,
-      "type": "timeseries",
-      "title": "Container restarts",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 36,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "expr": "robotont_container_restarts_total{robot=\"$robot\"}",
-          "refId": "A",
-          "legendFormat": "{{service}}"
+          "refId": "C",
+          "legendFormat": "__auto",
+          "instant": true,
+          "range": false,
+          "format": "table"
         }
       ],
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "name",
+            "mode": "outer"
           }
         },
-        "overrides": []
-      }
-    },
-    {
-      "id": 31,
-      "type": "timeseries",
-      "title": "Network (eth0 + wlan0)",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 36,
-        "w": 8,
-        "h": 7
-      },
-      "targets": [
         {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(node_network_receive_bytes_total{robot=\"$robot\",device=~\"eth0|wlan0\"}[2m])",
-          "refId": "A",
-          "legendFormat": "{{device}}"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "rate(node_network_transmit_bytes_total{robot=\"$robot\",device=~\"eth0|wlan0\"}[2m])",
-          "refId": "B",
-          "legendFormat": "{{device}}"
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Value #A": true,
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "robot": true,
+              "robot 1": true,
+              "robot 2": true,
+              "robot 3": true,
+              "robotont_id": true,
+              "robotont_id 1": true,
+              "robotont_id 2": true,
+              "robotont_id 3": true,
+              "generation": true,
+              "generation 1": true,
+              "generation 2": true,
+              "generation 3": true,
+              "stack": true,
+              "stack 1": true,
+              "stack 2": true,
+              "stack 3": true,
+              "service": true,
+              "service 1": true,
+              "service 2": true,
+              "service 3": true
+            },
+            "indexByName": {
+              "name": 0,
+              "state": 1,
+              "Value #B": 2,
+              "Value #C": 3,
+              "image": 4,
+              "devices": 5
+            },
+            "renameByName": {
+              "Value #B": "started",
+              "Value #C": "restarts"
+            }
+          }
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi"
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
         }
       },
       "fieldConfig": {
         "defaults": {
           "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 10
-          },
-          "unit": "Bps"
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "state"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "running": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "exited": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "dead": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "restarting": {
+                        "color": "orange",
+                        "index": 3
+                      },
+                      "paused": {
+                        "color": "orange",
+                        "index": 4
+                      },
+                      "created": {
+                        "color": "orange",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "started"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeFromNow"
+              },
+              {
+                "id": "custom.width",
+                "value": 150
+              },
+              {
+                "id": "noValue",
+                "value": "-"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "restarts"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 1
+                    },
+                    {
+                      "color": "red",
+                      "value": 5
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "devices"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "-"
+              }
+            ]
+          }
+        ]
       }
     }
   ]

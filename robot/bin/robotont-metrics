@@ -8,6 +8,7 @@ Outputs:
 Use --print to also print the metrics. Paths can be overridden with ROBOTONT_STATUS_DIR and
 ROBOTONT_TEXTFILE_DIR for testing.
 """
+import datetime
 import glob
 import json
 import os
@@ -102,6 +103,15 @@ def service_state():
         return "unknown"
 
 
+def parse_docker_time(value):
+    """Docker's RFC 3339 timestamps with nanoseconds ("2026-11-05T12:00:00.123456789Z") as epoch seconds."""
+    try:
+        return int(datetime.datetime.strptime(value[:19], "%Y-%m-%dT%H:%M:%S")
+                   .replace(tzinfo=datetime.timezone.utc).timestamp())
+    except (TypeError, ValueError):
+        return 0
+
+
 def collect_containers():
     containers = []
     ids = sh("docker", "ps", "-aq", "--filter", f"label=com.docker.compose.project={PROJECT}").split()
@@ -110,12 +120,14 @@ def collect_containers():
     for c in json.loads(sh("docker", "inspect", *ids)):
         lbl = c.get("Config", {}).get("Labels") or {}
         devices = [d.strip() for d in lbl.get("robotont.devices", "").split(",") if d.strip()]
+        state = c.get("State", {}) or {}
         containers.append({
             "name": c.get("Name", "").lstrip("/"),
             "service": lbl.get("com.docker.compose.service", ""),
             "stack": lbl.get("robotont.stack", ""),
             "image": c.get("Config", {}).get("Image", ""),
-            "state": c.get("State", {}).get("Status", "unknown"),
+            "state": state.get("Status", "unknown"),
+            "started": parse_docker_time(state.get("StartedAt", "")) if state.get("Status") == "running" else 0,
             "restarts": int(c.get("RestartCount", 0)),
             "devices": devices,
         })
@@ -151,7 +163,10 @@ def main():
         f"robotont_docker_available {1 if docker_ok else 0}",
     ]
     for c in containers:
-        base = {"stack": c["stack"], "service": c["service"]}
+        base = {"stack": c["stack"], "service": c["service"], "name": c["name"]}
+        # One series per container with everything the dashboard's container list shows ("docker ps").
+        lines.append(f'robotont_container_info{labels({**base, "image": c["image"], "state": c["state"], "devices": ",".join(c["devices"])})} 1')
+        lines.append(f'robotont_container_started_timestamp_seconds{labels(base)} {c["started"]}')
         lines.append(f'robotont_container_state{labels({**base, "state": c["state"]})} 1')
         lines.append(f'robotont_container_restarts_total{labels(base)} {c["restarts"]}')
         lines.append(f'robotont_container_up{labels({**base, "image": c["image"]})} {1 if c["state"] == "running" else 0}')
