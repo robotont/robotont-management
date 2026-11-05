@@ -207,9 +207,8 @@ repository under `robot/stacks/`.
 
 Grafana shows how many robots are online, a list of every robot with its state, and for each
 robot its status, uptime, containers like `docker ps`, and graphs of CPU, memory, temperature
-and disk. Four alerts are shown on the page,
-not sent anywhere: robot down, service not active, a device claimed but not present, and a
-device claimed twice.
+and disk. Four alerts are shown on the page, not sent anywhere: robot down, service not active,
+a device claimed but not present, and a device claimed twice.
 
 ## Writing a stack
 
