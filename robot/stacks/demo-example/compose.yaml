@@ -1,4 +1,4 @@
-# Workspace "demo-example": template for demos. The bringup plus one extra node from the same image.
+# Stack "demo-example": template for demos. The bringup plus one extra node from the same image.
 # To create a demo: copy this directory to demo-<name> (max 31 characters, [a-z0-9-]), replace the
 # extra service(s), declare the devices they open in `robotont.devices`, and add a README.md that
 # says what the demo shows and what runs on a laptop.

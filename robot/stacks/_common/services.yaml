@@ -1,8 +1,8 @@
-# Shared service definitions for Robotont workspaces. Workspace files reference these with `extends`
+# Shared service definitions for Robotont stacks. Stack files reference these with `extends`
 # so that host networking, IPC, device access and labels are written once.
 #
-# Variables come from /etc/robotont/robotont.env (passed as --env-file by robotont-workspace) and
-# ROBOTONT_WORKSPACE is set by robotont-workspace itself. See notes/workspaces.md.
+# Variables come from /etc/robotont/robotont.env (passed as --env-file by robotont-stack) and
+# ROBOTONT_STACK is set by robotont-stack itself. See notes/stacks.md.
 services:
   # Anything that speaks ROS 2 on this robot.
   ros-app:
@@ -23,7 +23,7 @@ services:
     volumes:
       - /run/robotont:/run/robotont:ro      # status.json written by robotont-metrics
     labels:
-      robotont.workspace: "${ROBOTONT_WORKSPACE:-unknown}"
+      robotont.stack: "${ROBOTONT_STACK:-unknown}"
       robotont.devices: ""
 
   # Anything that opens hardware. /dev is bind-mounted so that the host udev symlinks
@@ -48,7 +48,7 @@ services:
     container_name: robotont-driver      # one driver per robot; a second one fails at `up`
     command: ros2 launch robotont_support robotont_bringup.launch.py ${ROBOTONT_BRINGUP_ARGS:-}
     labels:
-      robotont.workspace: "${ROBOTONT_WORKSPACE:-unknown}"
+      robotont.stack: "${ROBOTONT_STACK:-unknown}"
       robotont.devices: "${ROBOTONT_DRIVER_DEVICES:-mainboard,gamepad}"
     oom_score_adj: -500
 
@@ -67,7 +67,7 @@ services:
       - /etc/ssh/ssh_host_ed25519_key:/etc/ssh/hostkeys/ssh_host_ed25519_key:ro
       - /etc/ssh/ssh_host_ed25519_key.pub:/etc/ssh/hostkeys/ssh_host_ed25519_key.pub:ro
     labels:
-      robotont.workspace: "${ROBOTONT_WORKSPACE:-unknown}"
+      robotont.stack: "${ROBOTONT_STACK:-unknown}"
       robotont.devices: ""
       robotont.role: student
     cpus: 3.0
@@ -89,5 +89,5 @@ services:
       - "c 189:* rmw"
       - "c 81:* rmw"
     labels:
-      robotont.workspace: "${ROBOTONT_WORKSPACE:-unknown}"
+      robotont.stack: "${ROBOTONT_STACK:-unknown}"
       robotont.devices: "mainboard,lidar,gamepad,realsense"

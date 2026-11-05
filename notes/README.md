@@ -17,9 +17,9 @@ which does not link here on purpose. Nothing in this directory is needed to use 
 | `04-software-firmware-versioning.md` | versioning, firmware options, monitoring signals |
 | `05-implementation-plan.md` | decisions, target layout, milestones |
 | `06-v1-reproduce-current-setup.md` | the legacy host-ROS path and its test log |
-| `07-container-runtime.md` | workspaces, images, CI, monitoring hooks, runbook, the main test log |
+| `07-container-runtime.md` | stacks, images, CI, monitoring hooks, runbook, the main test log |
 | `08-hardware-test-guide.md` | manual verification steps, known issues 1 to 10, troubleshooting table |
 | `10-monitoring.md` | node_exporter, Prometheus, Grafana, the dashboard, alert rules |
 | `semaphore-setup.md` | what the Semaphore bootstrap creates, Linux host specifics, task fields |
-| `workspaces.md` | the full rules for workspace files and generated workspaces |
+| `stacks.md` | the full rules for stack files and generated stacks |
 | `student-image.md` | the planned student image (not built) |

@@ -19,7 +19,7 @@ run() {  # run <name> <command...>: PASS/FAIL on the exit status, output only on
 # 1. Playbook syntax (the extra vars each playbook asserts on; setup_ros needs the submodules)
 if have ansible-playbook; then
   vars=(-e robot_address=robotont-1.local -e robotont_id=1 -e robot_type=3lite -e robotont_camera=false
-        -e image=hello-world -e workspace=driver -e network=192.168.1.0/24 -e wifi_hotspot_password=12345678
+        -e image=hello-world -e stack=driver -e network=192.168.1.0/24 -e wifi_hotspot_password=12345678
         -e wifi_client_ssid=lab -e wifi_client_password=12345678 -e wifi_pass=12345678)
   for pb in playbooks/*.yml; do
     if [ "$pb" = playbooks/setup_ros.yml ] && [ ! -f external/robotont-setup-rpi/ansible/robots.yaml ]; then
@@ -33,7 +33,7 @@ fi
 
 # 2. yamllint (configuration in .yamllint)
 if have yamllint; then
-  run "yamllint" yamllint -s playbooks roles inventory server robot/workspaces .github .yamllint .ansible-lint
+  run "yamllint" yamllint -s playbooks roles inventory server robot/stacks .github .yamllint .ansible-lint
 else
   skip "yamllint" "not installed"
 fi
@@ -46,7 +46,7 @@ else
 fi
 
 # 4. shellcheck: the binary, or the koalaman/shellcheck image
-shell_files=(scripts/*.sh robot/bin/robotont-workspace robot/bin/robotont-status robot/workspaces/host/run.sh)
+shell_files=(scripts/*.sh robot/bin/robotont-stack robot/bin/robotont-status robot/stacks/host/run.sh)
 if have shellcheck; then
   run "shellcheck" shellcheck "${shell_files[@]}"
 elif have docker; then

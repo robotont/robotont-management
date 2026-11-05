@@ -1,43 +1,43 @@
-# 07. Workspaces (Docker on the robots)
+# 07. Stacks (Docker on the robots)
 
 ## Why
 
-What runs on a robot is a *workspace*: the plain driver, a demo for a presentation
+What runs on a robot is a *stack*: the plain driver, a demo for a presentation
 (`university-celebration-day-demo-2026`), a development setup (`leonid-development-camera`), a
-student environment. Workspaces are switched from Semaphore without reinstalling anything, and a
+student environment. Stacks are switched from Semaphore without reinstalling anything, and a
 robot needs no ROS on the host: everything ROS lives in images that CI builds and the robots
 pull. Several containers may hold several pieces of hardware, and monitoring shows which. The
 firmware's OLED menu for selecting containers (branch `v3.0-devel-jyrgen`, not merged) proves the
 intent; the switch itself is done from Semaphore.
 
 Decisions taken with the user: 2026-09-23 students enter through sshd in the student container
-on port 2222, the study-room default is `student`; 2026-09-27 the term is *workspace*, robots are
+on port 2222, the study-room default is `student`; 2026-09-27 the term is *stack*, robots are
 Docker-only (the upstream host-ROS setup stays as "Setup ROS (legacy)"), the docker files live
 under `/srv/robotont`, images are built by GitHub Actions and pulled from GHCR (public).
 
 ## How it works
 
 ```
-/etc/robotont/workspace  ──►  robotont.service  ──►  robotont-workspace run
+/etc/robotont/stack  ──►  robotont.service  ──►  robotont-stack run
    (one word, e.g.                (systemd,               │
     driver)                        User=peko)             ├─ compose.yaml: docker compose -p robotont up   (foreground)
-                                                          └─ run.sh:       host bringup (workspace "host", legacy)
+                                                          └─ run.sh:       host bringup (stack "host", legacy)
 /etc/robotont/robotont.env ─── identity and options (Ansible-managed), read by both
-/srv/robotont/workspaces/<name>/ ─── deployed from robot/workspaces in this repository
+/srv/robotont/stacks/<name>/ ─── deployed from robot/stacks in this repository
 /srv/robotont/images/, releases/ ─── the Dockerfiles and pinned releases (fallback build only)
 ```
 
-- **One workspace at a time.** The compose project name is always `robotont`, so `up
-  --remove-orphans` removes the previous workspace's containers, and fixed container names
-  (`robotont-driver`) make two drivers impossible. A workspace may contain several containers.
-- **Switching** is `robotont-workspace switch <name>`: validate, write the word, restart the unit.
-  Semaphore runs it through `playbooks/switch_workspace.yml` (task "3. Switch workspace": Robot
-  number, Workspace; the dropdown lists the directories under `robot/workspaces`). Deploys never
+- **One stack at a time.** The compose project name is always `robotont`, so `up
+  --remove-orphans` removes the previous stack's containers, and fixed container names
+  (`robotont-driver`) make two drivers impossible. A stack may contain several containers.
+- **Switching** is `robotont-stack switch <name>`: validate, write the word, restart the unit.
+  Semaphore runs it through `playbooks/switch_stack.yml` (task "3. Switch stack": Robot
+  number, Stack; the dropdown lists the directories under `robot/stacks`). Deploys never
   reset the selection; it is operational state, written only on the first deploy
-  (`robotont_default_workspace: driver`).
+  (`robotont_default_stack: driver`).
 - **Deploying** is `playbooks/deploy.yml` (task "2. Deploy"): copy `robot/` to `/srv/robotont`,
-  write the env file, `robotont-workspace pull` (every image every workspace references), then
-  the unit. When an image of the active workspace changed, the unit is restarted and compose
+  write the env file, `robotont-stack pull` (every image every stack references), then
+  the unit. When an image of the active stack changed, the unit is restarted and compose
   recreates that container. Without registry access the `robotont-ros` image is built on the
   robot as a fallback (15 to 40 minutes).
 - **Restarts.** Containers use `restart: unless-stopped`, so a crashing driver is back in seconds
@@ -53,25 +53,25 @@ under `/srv/robotont`, images are built by GitHub Actions and pulled from GHCR (
   never arrives; found on robotont-123, test log). `ipc: host` stays for anything else that needs
   `/dev/shm`.
 - **Device declarations.** Each service labels the hardware it opens (`robotont.devices`, vocabulary
-  `mainboard lidar gamepad realsense camera`). `robotont-workspace check` refuses two claims on an
+  `mainboard lidar gamepad realsense camera`). `robotont-stack check` refuses two claims on an
   exclusive device; `robotont-metrics` turns claims into metrics.
 
 ## Files
 
 | Repository path | On the robot | Purpose |
 |---|---|---|
-| `robot/workspaces/_common/services.yaml` | `/srv/robotont/workspaces/_common/` | shared service definitions (`ros-app`, `hardware`, `driver`, `student`, `student-hw`) |
-| `robot/workspaces/<name>/compose.yaml` or `run.sh` | `/srv/robotont/workspaces/<name>/` | one workspace each; see [notes/workspaces.md](../notes/workspaces.md) |
+| `robot/stacks/_common/services.yaml` | `/srv/robotont/stacks/_common/` | shared service definitions (`ros-app`, `hardware`, `driver`, `student`, `student-hw`) |
+| `robot/stacks/<name>/compose.yaml` or `run.sh` | `/srv/robotont/stacks/<name>/` | one stack each; see [notes/stacks.md](../notes/stacks.md) |
 | `robot/images/compose.build.yaml`, `robotont-ros/Dockerfile` | `/srv/robotont/images/` | image definitions: built by CI, on the robot only as fallback |
 | `robot/releases/<release>.repos` | `/srv/robotont/releases/` | pinned sources the image is built from |
-| `robot/bin/robotont-workspace`, `robotont-metrics`, `robotont-status` | `/usr/local/bin/` | switch, run and pull; metrics and status |
+| `robot/bin/robotont-stack`, `robotont-metrics`, `robotont-status` | `/usr/local/bin/` | switch, run and pull; metrics and status |
 | `.github/workflows/images.yml` | | builds `robotont-ros` per release on native runners and pushes to GHCR |
 | `roles/robotont_host` | hostname, `/etc/udev/rules.d/99-robotont.rules`, groups, NetworkManager profiles | what robotont-setup did on the host besides ROS; part of "1. Setup Ubuntu" |
 | `roles/docker` | | Docker Engine and Compose plugin from Docker's apt repository, `daemon.json` (journald logging, live-restore, metrics on 127.0.0.1:9323), `peko` in group `docker`; part of "1. Setup Ubuntu" |
-| `roles/robotont_workspaces` | `/srv/robotont`, `/etc/robotont/`, `/etc/systemd/system/robotont.service`, `/etc/sudoers.d/robotont-workspace`, metrics timer | the runtime itself, including the image pull |
+| `roles/robotont_stacks` | `/srv/robotont`, `/etc/robotont/`, `/etc/systemd/system/robotont.service`, `/etc/sudoers.d/robotont-stack`, metrics timer | the runtime itself, including the image pull |
 | `playbooks/deploy.yml` | | Semaphore "2. Deploy" (Robot number) |
-| `playbooks/switch_workspace.yml` | | Semaphore "3. Switch workspace" (Robot number, Workspace) |
-| `playbooks/status.yml` | | read-only report: active workspace, containers, declared devices |
+| `playbooks/switch_stack.yml` | | Semaphore "3. Switch stack" (Robot number, Stack) |
+| `playbooks/status.yml` | | read-only report: active stack, containers, declared devices |
 
 ## Images
 
@@ -95,67 +95,67 @@ on the host, including the known bringup quirks (the driver opens the code defau
 `/dev/ttyACM0`; the RealSense path is on by default). Moving to the `jazzy` heads waits for the
 upstream fixes listed in [05](05-implementation-plan.md) section 4.
 
-A robot without registry access builds the image itself from the same files (`robotont-workspace`
+A robot without registry access builds the image itself from the same files (`robotont-stack`
 reports `missing`, the role builds). Such an image differs from the CI one only in build date.
 
 ## Runbook
 
 **New robot**: "1. Setup Ubuntu" (address, number, type, camera), then "2. Deploy" (number). The
-robot comes up in the `driver` workspace. Command line:
+robot comes up in the `driver` stack. Command line:
 
 ```
 ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false
 ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
 ```
 
-**Switch** workspaces, and back:
+**Switch** stacks, and back:
 
 ```
-ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=test-talker
+ansible-playbook playbooks/switch_stack.yml -K -e robotont_id=123 -e stack=test-talker
 ansible-playbook playbooks/status.yml -K
-ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=driver
+ansible-playbook playbooks/switch_stack.yml -K -e robotont_id=123 -e stack=driver
 ```
 
-On the robot itself (as peko): `robotont-workspace switch driver`, `robotont-workspace status`,
+On the robot itself (as peko): `robotont-stack switch driver`, `robotont-stack status`,
 `journalctl -u robotont -f`.
 
-**Add a workspace**: copy `robot/workspaces/demo-example` to `robot/workspaces/<name>` (`[a-z0-9-]`,
+**Add a stack**: copy `robot/stacks/demo-example` to `robot/stacks/<name>` (`[a-z0-9-]`,
 up to 63 characters), edit the services (same image with another `command:`, or a new image added
 to `compose.build.yaml` and the workflow), declare `robotont.devices`, write a `README.md`.
 Validate locally, commit, run "2. Deploy" on the robot, then switch. `docker compose -f
-server/compose.yaml up -d` refreshes the Workspace dropdown in Semaphore.
+server/compose.yaml up -d` refreshes the Stack dropdown in Semaphore.
 
 ```
-docker compose -p robotont --env-file test/robotont.env -f robot/workspaces/<name>/compose.yaml config
-ROBOTONT_ROOT=robot ROBOTONT_ENV_FILE=test/robotont.env robot/bin/robotont-workspace check <name>
+docker compose -p robotont --env-file test/robotont.env -f robot/stacks/<name>/compose.yaml config
+ROBOTONT_ROOT=robot ROBOTONT_ENV_FILE=test/robotont.env robot/bin/robotont-stack check <name>
 ```
 
 **Run any image** without touching the repository: "4. Run image" (Robot number, Image, Name,
-Command, Hardware access) generates `/srv/robotont/workspaces/<name>/compose.yaml` on the robot
-from `roles/robotont_workspaces/templates/image-workspace.compose.yaml.j2` (one service that
+Command, Hardware access) generates `/srv/robotont/stacks/<name>/compose.yaml` on the robot
+from `roles/robotont_stacks/templates/image-stack.compose.yaml.j2` (one service that
 extends `ros-app` or `hardware`), pulls the image as peko and activates it. Deploy leaves such
 directories alone and keeps pulling their images. Good for demos, a quick exporter, a test
 build from a personal registry. Anything with volumes, several services or devices beyond the
-shared definitions is a repository workspace.
+shared definitions is a repository stack.
 
 ```
 ansible-playbook playbooks/run_image.yml -K -e robotont_id=123 -e image=traefik/whoami:v1.11.0
 ansible-playbook playbooks/run_image.yml -K -e robotont_id=123 -e image=ghcr.io/robotont/robotont-ros:2026.09-lite \
-  -e workspace=talker-image -e hardware=yes -e command='ros2 run demo_nodes_cpp talker'
+  -e stack=talker-image -e hardware=yes -e command='ros2 run demo_nodes_cpp talker'
 ```
 
 **Change the release**: add `robot/releases/<new>.repos` (pinned SHAs, `vcs export --exact` from a
-known-good workspace), add the release to the workflow matrix, set `robotont_release` in
+known-good stack), add the release to the workflow matrix, set `robotont_release` in
 `group_vars`, push (CI builds), then "2. Deploy" on each robot: the pull brings the new layer and
-the active workspace is restarted on it.
+the active stack is restarted on it.
 
 **Adopted robots** (ROS installed on the host by the legacy setup): "1. Setup Ubuntu" and
 "2. Deploy" work unchanged; the first deploy selects `driver`, and `host` remains available as a
-workspace for as long as the host ROS is there.
+stack for as long as the host ROS is there.
 
 ## Semaphore tasks
 
-"2. Deploy" (Robot number), "3. Switch workspace" (Robot number, Workspace) and "4. Run image"
+"2. Deploy" (Robot number), "3. Switch stack" (Robot number, Stack) and "4. Run image"
 (Robot number, Image, Name, Command, Hardware access). All run on exactly one robot; there is no
 fleet-wide switch. Command-line only: `-e robotont_rebuild=true`
 forces a build on the robot (to test a Dockerfile change before pushing), `-e
@@ -168,33 +168,33 @@ robotont_pull_images=false` skips the pull on a robot without internet.
 `robotont-status`, also inside containers):
 
 ```
-robotont_workspace_info{workspace,release} 1
+robotont_stack_info{stack,release} 1
 robotont_info{release,firmware} 1
 robotont_service_active 0|1
 robotont_docker_available 0|1
-robotont_container_state{workspace,service,state} 1
-robotont_container_up{workspace,service,image} 0|1
-robotont_container_restarts_total{workspace,service}
-robotont_container_device{workspace,service,device} 1
+robotont_container_state{stack,service,state} 1
+robotont_container_up{stack,service,image} 0|1
+robotont_container_restarts_total{stack,service}
+robotont_container_device{stack,service,device} 1
 robotont_device_present{device} 0|1
 robotont_device_conflict{device} 0|1
 robotont_deploy_timestamp_seconds            mtime of /etc/robotont/deployed, touched by every 2. Deploy
-robotont_workspace_since_timestamp_seconds   mtime of /etc/robotont/workspace (last switch)
+robotont_stack_since_timestamp_seconds   mtime of /etc/robotont/stack (last switch)
 robotont_metrics_timestamp_seconds
 ```
 
-Grafana can show per robot which workspace runs and which devices are claimed or missing; alerts
+Grafana can show per robot which stack runs and which devices are claimed or missing; alerts
 later in PromQL (claimed but absent, exclusive device claimed twice, restart loops).
 
 ## Student environment (Phase D3, designed)
 
-- Workspace `student` = the driver container plus `robotont-student` with sshd on port 2222;
-  `ssh -p 2222 peko@robotont-N` lands in the ROS environment with the workspace. VS Code users add
+- Stack `student` = the driver container plus `robotont-student` with sshd on port 2222;
+  `ssh -p 2222 peko@robotont-N` lands in the ROS environment with the stack. VS Code users add
   one Remote-SSH entry. Host port 22 stays for operators; `robotont-shell` (docker exec) is the fallback.
 - The whole container home is a bind mount of `/home/peko/student`, so the work, shell history
-  and the VS Code server survive workspace switches and image updates. `apt` installs inside the
+  and the VS Code server survive stack switches and image updates. `apt` installs inside the
   container do not; anything a course needs goes into the image.
-- Workspace `student-hw` gives the student container the hardware instead of running the driver:
+- Stack `student-hw` gives the student container the hardware instead of running the driver:
   students start the driver themselves. Exactly one of the two runs at a time.
 - Limits (`cpus`, `mem_limit`, `pids_limit`, colcon parallel workers) keep a student build from
   starving the driver.
@@ -212,8 +212,8 @@ later in PromQL (claimed but absent, exclusive device claimed twice, restart loo
 ## Phases
 
 - **D1** done 2026-09-27: runtime, `driver`, `test-talker`, `demo-example`, deploy and switch, verified on a Lite robot.
-- **D2**: real demo workspaces in daily use.
-- **D3**: student image and workspaces, `robotont-shell`, motd, `reset_student_env.yml`, student guide.
+- **D2**: real demo stacks in daily use.
+- **D3**: student image and stacks, `robotont-shell`, motd, `reset_student_env.yml`, student guide.
 - **D4** files done 2026-09-27: GHCR workflow, pull-based deploy; first CI run pending a push.
 - **D5** (optional): OLED bridge daemon after the firmware merge, or a second USB CDC interface in
   the firmware for the menu channel (cleaner; raise with Veiko).
@@ -234,16 +234,17 @@ Procedure: [08-hardware-test-guide.md](08-hardware-test-guide.md), Part B.
 | 2026-09-27 | robotont-123 | B6 reboot, B7 rollback | after the reboot preset `driver` persisted, container up 24 s after login, `NRestarts=0`, 14 topics; "Switch preset" host from Semaphore: no containers, host bringup through `run.sh` running, 15 topics |
 | 2026-09-27 | robotont-123, **fresh card**, mainboard and lidar fitted, user-driven from the Semaphore UI | "3. Setup Docker" (task 33) | first attempt red in the build step: the ISP path to `packages.ros.org` and `auth.docker.io` was down from the robot for a while (TCP timeouts from both interfaces, LAN clean); the runtime part had completed (new unit, preset host, camera respawn gone). Build step now retries three times. Second run **green** in 19 min including the image build |
 | 2026-09-27 | robotont-123, fresh card | "4. Switch preset" driver (task 34) | **green**: `robotont-driver` from `robotont-ros:2026.09-lite` (4.5 GB), `/dev/robotont` and `/dev/lidar` visible inside, RPLidar identified, driver opens the mainboard; `status.yml` green with `containers_running: 1/1`; metrics show both devices present and the container running with 0 restarts; a `/rt123/scan` message reaches a host subscriber |
-| 2026-09-27 | robotont-123 (lidar fitted, mainboard unplugged after the user's reboot) | Restructure to workspaces under `/srv/robotont`, pull-based "2. Deploy", two-layer Dockerfile, CI workflow (files only), "1. Setup Ubuntu" with the new host role | **green** through Semaphore: 1. Setup Ubuntu (host role idempotent on a robot set up by the legacy path: only the profile files and `/etc/hosts` rewritten once; Docker already present); 2. Deploy migrated `/etc/robotont/preset` to `workspace`, removed `/opt/robotont`, pull from GHCR denied as expected (no CI push yet) and the local image used; forced rebuild with the two-layer Dockerfile 12 min on the Pi: image 3.9 GB (was 4.5), release in two layers of 140 MB (sources) and 95 MB (install), dependency list of 14 packages from `rosdep --simulate`; 3. Switch workspace driver runs the driver on the rebuilt image; second Deploy changes nothing but the files edited in between; `status.yml` green with `workspace driver`, 1/1 containers. Defect found: an unquoted YAML condition in the host role (fixed) |
+| 2026-09-27 | robotont-123 (lidar fitted, mainboard unplugged after the user's reboot) | Restructure to stacks under `/srv/robotont`, pull-based "2. Deploy", two-layer Dockerfile, CI workflow (files only), "1. Setup Ubuntu" with the new host role | **green** through Semaphore: 1. Setup Ubuntu (host role idempotent on a robot set up by the legacy path: only the profile files and `/etc/hosts` rewritten once; Docker already present); 2. Deploy migrated `/etc/robotont/preset` to `stack`, removed `/opt/robotont`, pull from GHCR denied as expected (no CI push yet) and the local image used; forced rebuild with the two-layer Dockerfile 12 min on the Pi: image 3.9 GB (was 4.5), release in two layers of 140 MB (sources) and 95 MB (install), dependency list of 14 packages from `rosdep --simulate`; 3. Switch stack driver runs the driver on the rebuilt image; second Deploy changes nothing but the files edited in between; `status.yml` green with `stack driver`, 1/1 containers. Defect found: an unquoted YAML condition in the host role (fixed) |
 | 2026-11-04 | robotont-123, **fresh 24.04.5 card** (Imager: hostname, user, avahi via cloud-init), no mainboard, no lidar, cable straight into an Ubuntu 24.04 laptop (shared Ethernet, Docker Engine 29, Semaphore from `server/compose.yaml`) | "1. Setup Ubuntu" from Semaphore with the IP (tasks 1 to 4) | 1: red before SSH, the container could not reach the shared interface (notes/08 issue 9); 2: red at `Wait for the host to come back`, the lease moved `.238` to `.239` in the handover (issue 2); 3: red at the Docker install, dpkg lock held by `unattended-upgrade` (issue 8, `lock_timeout: 600` added); 4: **green**, `ok=30 changed=5`, Docker 29.9.3 and Compose 5.7.0, peko in `docker`, enrolment written from the container with `ansible_host: 10.42.0.239` |
-| 2026-11-04 | robotont-123 | GHCR pull with a read-only PAT (`docker login ghcr.io` as peko, done by the user), then "2. Deploy" with `robotont_build_fallback=false` (task 5) | pull `ghcr.io/robotont/robotont-ros:2026.09-lite` 3.88 GB, id `e32b3baad4c0`, in a few minutes over the laptop's uplink; Deploy **green** `ok=26 changed=14`: `/srv/robotont`, `robotont.env`, workspace `driver`, unit and metrics timer; `robotont-driver` running, driver node and rplidar retry on the missing devices as expected, `robotont.prom` written (`device_present{mainboard} 0`) |
-| 2026-11-04 | robotont-123 | B2 "3. Switch workspace" test-talker (task 6) | **green**: `robotont-talker` up in 24 s, `ros2 topic echo --once /chatter` inside the container prints `hello from robotont-123` |
-| 2026-11-04 | robotont-123 (no mainboard, no lidar) | B4 "3. Switch workspace" driver (task 7), B6 reboot (`sudo reboot` by the user) | B4 **green**: `robotont-driver` back in 34 s, `NRestarts=0`; B6 **green**: boot 18:15:20 UTC, `robotont.service` active at 18:15:41, driver container up, same lease `10.42.0.239`, `systemd-networkd` inactive (NetworkManager alone), `robotont-123.local` resolves from the laptop, `robotont_container_up ... 1`. Not tested today (no hardware): B3, B5, B7, B8, odometry, lidar |
+| 2026-11-04 | robotont-123 | GHCR pull with a read-only PAT (`docker login ghcr.io` as peko, done by the user), then "2. Deploy" with `robotont_build_fallback=false` (task 5) | pull `ghcr.io/robotont/robotont-ros:2026.09-lite` 3.88 GB, id `e32b3baad4c0`, in a few minutes over the laptop's uplink; Deploy **green** `ok=26 changed=14`: `/srv/robotont`, `robotont.env`, stack `driver`, unit and metrics timer; `robotont-driver` running, driver node and rplidar retry on the missing devices as expected, `robotont.prom` written (`device_present{mainboard} 0`) |
+| 2026-11-04 | robotont-123 | B2 "3. Switch stack" test-talker (task 6) | **green**: `robotont-talker` up in 24 s, `ros2 topic echo --once /chatter` inside the container prints `hello from robotont-123` |
+| 2026-11-04 | robotont-123 (no mainboard, no lidar) | B4 "3. Switch stack" driver (task 7), B6 reboot (`sudo reboot` by the user) | B4 **green**: `robotont-driver` back in 34 s, `NRestarts=0`; B6 **green**: boot 18:15:20 UTC, `robotont.service` active at 18:15:41, driver container up, same lease `10.42.0.239`, `systemd-networkd` inactive (NetworkManager alone), `robotont-123.local` resolves from the laptop, `robotont_container_up ... 1`. Not tested today (no hardware): B3, B5, B7, B8, odometry, lidar |
 | 2026-11-04 | bench network `10.42.0.0/24` (laptop `10.42.0.1`, robotont-123) | new task "0. Find robots" (`playbooks/find_robots.yml`), from a terminal and from Semaphore (task 9) | **green** both ways: probe 2 s, report `robotont-123  at  10.42.0.239` and the laptop under "SSH open but not a robot, or the fleet key was not accepted" (its unreachable line shows red in the log but the task succeeds). First Semaphore attempt found nothing: the bench firewall rule had been lost when the robot's reboot re-activated the laptop's shared profile (documented in semaphore-setup.md with a dispatcher script) |
-| 2026-11-04 | robotont-123 (no mainboard, no lidar), from Semaphore via `bootstrap run` | new task "4. Run image" (tasks 11 to 17): `traefik/whoami:v1.11.0`; `prom/node-exporter:v1.9.1`; `ghcr.io/robotont/robotont-ros:2026.09-lite` as `talker-image` with Hardware yes and a `ros2 topic pub` command; name `driver`; image `nosuch/image:1`; "3. Switch workspace" driver; "2. Deploy" re-run | **green**: each run about 30 s plus the pull, `/srv/robotont/workspaces/<name>/compose.yaml` generated, `curl http://10.42.0.239/` prints `Hostname: robotont-123`, `:9100/metrics` serves `node_uname_info{nodename="robotont-123"}`, the private image pulled through peko's login, `/chatter` carries `run-image`, 5 device cgroup rules and `/dev` mounted with Hardware yes. Reserved name refused on the controller before any change; bad image fails at the pull with the pull output in the message, the generated directory is removed and the previous workspace keeps running. Deploy re-run keeps the three generated workspaces and pulls their images ("every workspace image is present") |
+| 2026-11-04 | robotont-123 (no mainboard, no lidar), from Semaphore via `bootstrap run` | new task "4. Run image" (tasks 11 to 17): `traefik/whoami:v1.11.0`; `prom/node-exporter:v1.9.1`; `ghcr.io/robotont/robotont-ros:2026.09-lite` as `talker-image` with Hardware yes and a `ros2 topic pub` command; name `driver`; image `nosuch/image:1`; "3. Switch stack" driver; "2. Deploy" re-run | **green**: each run about 30 s plus the pull, `/srv/robotont/stacks/<name>/compose.yaml` generated, `curl http://10.42.0.239/` prints `Hostname: robotont-123`, `:9100/metrics` serves `node_uname_info{nodename="robotont-123"}`, the private image pulled through peko's login, `/chatter` carries `run-image`, 5 device cgroup rules and `/dev` mounted with Hardware yes. Reserved name refused on the controller before any change; bad image fails at the pull with the pull output in the message, the generated directory is removed and the previous stack keeps running. Deploy re-run keeps the three generated stacks and pulls their images ("every stack image is present") |
 | 2026-11-04 | robotont-123, scenario "robot from the ground up" (fresh card earlier today) | regression and renumbering, all from Semaphore: "1. Setup Ubuntu" re-run; Setup Ubuntu with Robot number 77, Deploy 77, Run image on 77; Setup Ubuntu 123, Deploy 123, Switch driver; `inventory/robots/robotont-77.yaml` deleted | **green**, 4 min in all. Re-run: 31 s, no handover, one change (`/etc/hosts`, rewritten by cloud-init at the last reboot: `roles/robotont_host` now sets `preserve_hostname: true` and `manage_etc_hosts: false`). Renumber: hostname `robotont-77`, `robotont.env` with `ROBOTONT_ID=77`, `ROS_DOMAIN_ID=77`, namespace `rt77`, `/rt77/battery_state` listed inside the driver container, whoami answered `Hostname: robotont-77`; `robotont-77.local` did not resolve right after the rename (avahi re-announces later; not re-checked). Back to 123 the same way |
-| 2026-11-04 | robotont-123, scenario "existing robot added to the management": host ROS from Setup ROS (legacy) (see the notes/06 test log), hotspot and client Wi-Fi profiles, legacy unit in `/lib/systemd/system` | adoption from Semaphore, twice (before and after the patched legacy run): "1. Setup Ubuntu", "2. Deploy", "3. Switch workspace" host, driver, "4. Run image" whoami, driver | **green** both times, about 3 min each. Setup Ubuntu: no handover, `changed=3` to `4` (cloud-init hostname file, hotspot and client profiles rewritten from `.env`, `/etc/hosts`); Deploy: the legacy unit under `/lib/systemd/system` removed, `driver` kept, `changed=1`; workspace `host` runs the host bringup through `run.sh` (driver node from `~peko/ros2_ws`, serial errors from the missing mainboard); back to `driver`; whoami answers from the laptop; `driver` restored. The hotspot `robotont-123` is active on `wlan0` since the adoption (bench password in `.env`). Not tested: reboot survival of the adopted robot (needs a reboot by hand) |
-| 2026-11-04 | robotont-123 and the laptop, N2 monitoring ([10](10-monitoring.md)) | "1. Setup Ubuntu" with the new `monitoring` role (task 40); `docker compose up -d` with Prometheus v3.15.1 and Grafana 13.2.5; targets from `scripts/prometheus_targets.py` | **green**: `prometheus-node-exporter` 1.7.0 installed and configured in one run (`changed=3`), `curl :9100/metrics` from the laptop gives 1758 `node_*` lines plus the `robotont_*` textfile; the bootstrap rendered `targets/robots.json` (`10.42.0.239:9100`, labels robot, robotont_id, generation); Prometheus target `up`; Grafana provisioned the datasource and the "Robotont fleet" dashboard (21 panels), which showed in the browser: 1 robot up, 3 alerts firing (`RobotontDeviceMissing` for mainboard, lidar, gamepad: the positive test on a bench without hardware), fleet table, per-robot CPU, memory, disk, temperature (`cpu-thermal` 47 °C), restarts, network. First render showed "Value" for workspace and release and a wrong column order; fixed in the JSON (instant queries without table format; original field names in the organize transformation) |
-| 2026-11-04 | laptop (no robot) | N4 static checks: `scripts/check.sh`, `.github/workflows/checks.yml`, `.yamllint`, `.ansible-lint`, `.gitattributes` | local run with ansible-core 2.21, ansible-lint 25, yamllint 1.38, shellcheck 0.11 (image): all 16 steps PASS after fixes. Findings fixed without behaviour change: 25 lines over 120 characters wrapped as folded scalars (the bringup-args template and the switch report message verified identical after folding), `become: true` added next to every `become_user`, two task names with Jinja moved to the end, the two `import_playbook` entries named, three intended word splits in `robotont-workspace` marked for shellcheck; `command-instead-of-module` skipped with a reason (polling `systemctl is-active`, `git apply`). The enrolment file's header comment is now two lines (Setup Ubuntu will report it changed once per robot) |
-| 2026-11-04 | robotont-123 and the laptop | dashboard rebuilt around the robot list ([10](10-monitoring.md)): recording rules `robotont_last_seen_timestamp_seconds` and `robotont_ready`, new metrics `robotont_deploy_timestamp_seconds` (marker touched by Deploy) and `robotont_workspace_since_timestamp_seconds`; offline test by stopping `prometheus-node-exporter` on the robot for 2 min through Ansible | **green**: online row with last seen "a few seconds ago", ready "no" (no mainboard), workspace since and deployed as relative times; while stopped: 0 online, 1 offline, the row `offline` with last seen frozen at the last scrape ("a minute ago"), the Offline robots list filled, ready 0; after start: online again within a scrape. Two renders fixed on the way: stray `robot N` columns in the offline state (excluded in the organize transformation) and the deploy time read from `robotont.env`, which only changes on a changed deploy (replaced by the marker) |
+| 2026-11-04 | robotont-123, scenario "existing robot added to the management": host ROS from Setup ROS (legacy) (see the notes/06 test log), hotspot and client Wi-Fi profiles, legacy unit in `/lib/systemd/system` | adoption from Semaphore, twice (before and after the patched legacy run): "1. Setup Ubuntu", "2. Deploy", "3. Switch stack" host, driver, "4. Run image" whoami, driver | **green** both times, about 3 min each. Setup Ubuntu: no handover, `changed=3` to `4` (cloud-init hostname file, hotspot and client profiles rewritten from `.env`, `/etc/hosts`); Deploy: the legacy unit under `/lib/systemd/system` removed, `driver` kept, `changed=1`; stack `host` runs the host bringup through `run.sh` (driver node from `~peko/ros2_ws`, serial errors from the missing mainboard); back to `driver`; whoami answers from the laptop; `driver` restored. The hotspot `robotont-123` is active on `wlan0` since the adoption (bench password in `.env`). Not tested: reboot survival of the adopted robot (needs a reboot by hand) |
+| 2026-11-04 | robotont-123 and the laptop, N2 monitoring ([10](10-monitoring.md)) | "1. Setup Ubuntu" with the new `monitoring` role (task 40); `docker compose up -d` with Prometheus v3.15.1 and Grafana 13.2.5; targets from `scripts/prometheus_targets.py` | **green**: `prometheus-node-exporter` 1.7.0 installed and configured in one run (`changed=3`), `curl :9100/metrics` from the laptop gives 1758 `node_*` lines plus the `robotont_*` textfile; the bootstrap rendered `targets/robots.json` (`10.42.0.239:9100`, labels robot, robotont_id, generation); Prometheus target `up`; Grafana provisioned the datasource and the "Robotont fleet" dashboard (21 panels), which showed in the browser: 1 robot up, 3 alerts firing (`RobotontDeviceMissing` for mainboard, lidar, gamepad: the positive test on a bench without hardware), fleet table, per-robot CPU, memory, disk, temperature (`cpu-thermal` 47 °C), restarts, network. First render showed "Value" for stack and release and a wrong column order; fixed in the JSON (instant queries without table format; original field names in the organize transformation) |
+| 2026-11-04 | laptop (no robot) | N4 static checks: `scripts/check.sh`, `.github/workflows/checks.yml`, `.yamllint`, `.ansible-lint`, `.gitattributes` | local run with ansible-core 2.21, ansible-lint 25, yamllint 1.38, shellcheck 0.11 (image): all 16 steps PASS after fixes. Findings fixed without behaviour change: 25 lines over 120 characters wrapped as folded scalars (the bringup-args template and the switch report message verified identical after folding), `become: true` added next to every `become_user`, two task names with Jinja moved to the end, the two `import_playbook` entries named, three intended word splits in `robotont-stack` marked for shellcheck; `command-instead-of-module` skipped with a reason (polling `systemctl is-active`, `git apply`). The enrolment file's header comment is now two lines (Setup Ubuntu will report it changed once per robot) |
+| 2026-11-04 | robotont-123 and the laptop | dashboard rebuilt around the robot list ([10](10-monitoring.md)): recording rules `robotont_last_seen_timestamp_seconds` and `robotont_ready`, new metrics `robotont_deploy_timestamp_seconds` (marker touched by Deploy) and `robotont_stack_since_timestamp_seconds`; offline test by stopping `prometheus-node-exporter` on the robot for 2 min through Ansible | **green**: online row with last seen "a few seconds ago", ready "no" (no mainboard), stack since and deployed as relative times; while stopped: 0 online, 1 offline, the row `offline` with last seen frozen at the last scrape ("a minute ago"), the Offline robots list filled, ready 0; after start: online again within a scrape. Two renders fixed on the way: stray `robot N` columns in the offline state (excluded in the organize transformation) and the deploy time read from `robotont.env`, which only changes on a changed deploy (replaced by the marker) |
 | 2026-11-05 | laptop and robotont-123 | "0. Find robots" with a Network dropdown: `scripts/host_networks.py` run by the compose service `host-networks` (host networking) writes `server/networks.json`, the bootstrap fills `@networks` from it plus the enrolled robots' /24s, "Other network" free text overrides | **green**: dropdown showed `enp0s31f6: 10.42.0.0/24` and `eth0: 192.168.42.0/24` (the Wi-Fi shares the second network and is deduplicated); dropdown value, free-text override and the terminal `-e network=` all list `robotont-123 at 10.42.0.239`. First override attempt scanned the dropdown's network: an extra var cannot be overridden by `set_fact`, so the playbook now scans `scan_network` computed from both fields |
+| 2026-11-05 | laptop and robotont-123 (deployed under the old naming, with a generated `whoami` stack) | "workspace" renamed to "stack" everywhere except the ROS workspace: `robot/stacks/`, `robotont-stack`, `/etc/robotont/stack`, `/srv/robotont/stacks`, `ROBOTONT_STACK`, label `robotont.stack`, metrics `robotont_stack_info` and `robotont_stack_since_timestamp_seconds`, `roles/robotont_stacks`, `playbooks/switch_stack.yml`, template "3. Switch stack" (survey var `stack`, dropdown `@stacks`), dashboard and rules. Migration in the deploy role: state file and tree moved (`mv`, so generated stacks survive), old tool and sudoers file removed after the unit restart | **green**: `up -d` removed the template "3. Switch workspace" and created "3. Switch stack"; "2. Deploy" moved `/etc/robotont/workspace` and `/srv/robotont/workspaces` (the `whoami` and `talker-image` directories came along), installed `robotont-stack`, unit `ExecStart=robotont-stack run`, `driver` running; "3. Switch stack" test-talker, "4. Run image" whoami (answers from the laptop), back to `driver`; `robotont.prom` with the `stack` label, Prometheus `robotont_stack_info{stack="driver"}`, the dashboard JSON free of the old name. Decision by Leonid: "stack" is the Docker word for a set of containers started together and does not collide with a ROS workspace |

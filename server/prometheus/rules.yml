@@ -33,7 +33,7 @@ groups:
           severity: warning
         annotations:
           summary: "robotont.service is not active on {{ $labels.robot }}"
-          description: "The active workspace is not running (journalctl -u robotont on the robot)."
+          description: "The active stack is not running (journalctl -u robotont on the robot)."
       - alert: RobotontDeviceMissing
         expr: robotont_container_device == 1 and on (instance, device) robotont_device_present == 0
         for: 1m
@@ -42,7 +42,7 @@ groups:
         annotations:
           summary: "{{ $labels.robot }}: {{ $labels.device }} claimed by {{ $labels.service }} but not present"
           description: >-
-            The workspace {{ $labels.workspace }} needs the {{ $labels.device }}, which is not enumerated
+            The stack {{ $labels.stack }} needs the {{ $labels.device }}, which is not enumerated
             (unplugged, powered off, or a udev rule problem).
       - alert: RobotontDeviceConflict
         expr: robotont_device_conflict == 1

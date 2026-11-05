@@ -1,4 +1,4 @@
-# Workspace "test-talker": hardware-free dummy for testing the unit, switching, logs and metrics on
+# Stack "test-talker": hardware-free dummy for testing the unit, switching, logs and metrics on
 # a VM or a robot without touching the mainboard. Uses the upstream ROS image only.
 services:
   talker:
@@ -21,5 +21,5 @@ services:
       - std_msgs/msg/String
       - "{data: hello from robotont-${ROBOTONT_ID:-0}}"
     labels:
-      robotont.workspace: "${ROBOTONT_WORKSPACE:-unknown}"
+      robotont.stack: "${ROBOTONT_STACK:-unknown}"
       robotont.devices: ""

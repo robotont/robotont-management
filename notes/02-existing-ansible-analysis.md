@@ -130,8 +130,8 @@ already provisioned with `robotont-setup` can be adopted without a reinstall.
 | Hostname | `robotont-N`; `/etc/hosts` has `127.0.1.1 robotont-N` |
 | ROS | `ros-jazzy-desktop` from packages.ros.org, `ros-dev-tools`, rosdep initialised, `ROS_DOMAIN_ID=N` in `~/.bashrc` |
 | Workspace | `/home/peko/ros2_ws` with `src/.rosinstall`, built with `colcon build`, sourced in `~/.bashrc` |
-| Packages in the workspace (NUC list) | `robotont_driver`, `robotont_msgs`, `robotont_description`, `robotont_nuc_description`, `robotont_support`, `laserscan_to_ranges`, `demo_teleop` (all `jazzy-devel`) |
-| Packages in the workspace (RPi list) | the above minus `robotont_nuc_description`, plus `robotont_lite_description`, `robotont_navigation`, `demo_slam`, `rplidar_ros` (all `jazzy`, `rplidar_ros` at `ros2`) |
+| Packages in the stack (NUC list) | `robotont_driver`, `robotont_msgs`, `robotont_description`, `robotont_nuc_description`, `robotont_support`, `laserscan_to_ranges`, `demo_teleop` (all `jazzy-devel`) |
+| Packages in the stack (RPi list) | the above minus `robotont_nuc_description`, plus `robotont_lite_description`, `robotont_navigation`, `demo_slam`, `rplidar_ros` (all `jazzy`, `rplidar_ros` at `ros2`) |
 | Mainboard device | `/dev/robotont` (udev, USB 0483:5740, mode 0666); RPi also `/dev/lidar` (10c4:ea60) |
 | Service | `/lib/systemd/system/robotont.service`: `ExecStart=/bin/bash -ic "ros2 launch robotont_support robotont_bringup.launch.py [args]"`, `User=peko`, `Restart=always`, `After=network-online.target` |
 | Bringup arguments | NUC: none (defaults: `generation:=3`, no camera, no lidar, no RealSense). RPi: `namespace:=rtN generation:=3lite lidar:=true camera:=true slam:=false` |
@@ -139,12 +139,12 @@ already provisioned with `robotont-setup` can be adopted without a reinstall.
 | System tweaks | Wi-Fi power saving off, `ufw` disabled, LibreOffice removed |
 
 The `.bashrc` is load-bearing: both Ansible (`bash -ic`) and the systemd unit (`bash -ic`) rely
-on it to find ROS, the workspace and `ROS_DOMAIN_ID`.
+on it to find ROS, the stack and `ROS_DOMAIN_ID`.
 
 ## 5. What is good and should be kept
 
 - The role split `ros` / `common` / `robots`, and the split of the `ros` role into locale,
-  install, extra packages and workspace files.
+  install, extra packages and stack files.
 - The rosdep handling that installs what it can and reports unknown keys instead of aborting.
 - The udev rule, the service unit and the bringup entry point: they define what a Robotont is at
   the OS level and are stable across generations.
@@ -154,7 +154,7 @@ on it to find ROS, the workspace and `ROS_DOMAIN_ID`.
 
 ## 6. Problems for fleet use
 
-1. **Not idempotent.** Every run wipes and rebuilds the workspace, upgrades all apt packages,
+1. **Not idempotent.** Every run wipes and rebuilds the stack, upgrades all apt packages,
    runs `rosdep update` twice, fetches files from GitHub and ends with a reboot. A "Provision"
    button that takes 30 minutes and reboots the robot cannot double as a health or update action.
 2. **Unconditional reboot inside the role**, with `ignore_errors: true`, so a failed reboot is
@@ -165,7 +165,7 @@ on it to find ROS, the workspace and `ROS_DOMAIN_ID`.
    `robotont_user`), different package lists (`jazzy-devel` vs `jazzy`), different network
    mechanisms (netplan vs NetworkManager keyfiles), and a README on the NUC branch that is still
    the ROS 1 text.
-5. **Software has no version.** The workspace is whatever the branch heads were on the day of
+5. **Software has no version.** The stack is whatever the branch heads were on the day of
    provisioning, and `jazzy-devel` is stale in four of the repositories (see 01).
 6. **Hard-coded Wi-Fi interface** `wlp58s0` on the NUC branch; the Noetic branch had a
    `wifi_interface` variable that was lost in the port.

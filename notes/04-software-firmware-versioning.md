@@ -31,7 +31,7 @@ firmware commit or version required for full function.
 
 1. A release is a vcstool file in this repository, for example `releases/2026.09.repos`, with
    every repository pinned to a tag or a commit SHA (`vcs export --exact` produces this format
-   from a known-good workspace). Creating a release is a Git commit here, which keeps Git the
+   from a known-good stack). Creating a release is a Git commit here, which keeps Git the
    source of truth.
 2. `group_vars` sets `robotont_software_release: "2026.09"`; a Semaphore task can override it
    per run.
@@ -53,7 +53,7 @@ firmware commit or version required for full function.
    `robotont_lite_description`) when they are in a known-good state, so releases can reference
    tags instead of SHAs. Until then SHAs work.
 
-Later steps in the same direction, not for the MVP: building `.deb` packages from the workspace,
+Later steps in the same direction, not for the MVP: building `.deb` packages from the stack,
 or a container image as sketched in `robotont-supervisor`. The role boundary (`robotont_software`
 means "make the desired release run") stays the same in both cases, which is what the context
 document asks for (sections 10 and 17).

@@ -1,7 +1,7 @@
-# Managed by Ansible (roles/robotont_workspaces). Runs the workspace named in /etc/robotont/workspace:
-# a docker compose project in the foreground, or the host bringup for workspace "host".
+# Managed by Ansible (roles/robotont_stacks). Runs the stack named in /etc/robotont/stack:
+# a docker compose project in the foreground, or the host bringup for stack "host".
 [Unit]
-Description=Robotont runtime (workspace from /etc/robotont/workspace)
+Description=Robotont runtime (stack from /etc/robotont/stack)
 Documentation=https://github.com/robotont/robotont-management
 Wants=network-online.target docker.service
 After=network-online.target docker.service
@@ -11,8 +11,8 @@ Type=simple
 User={{ robotont_user }}
 EnvironmentFile=/etc/robotont/robotont.env
 WorkingDirectory={{ robotont_root }}
-ExecStart=/usr/local/bin/robotont-workspace run
-ExecStop=/usr/local/bin/robotont-workspace down
+ExecStart=/usr/local/bin/robotont-stack run
+ExecStop=/usr/local/bin/robotont-stack down
 Restart=always
 RestartSec=5
 TimeoutStopSec=45

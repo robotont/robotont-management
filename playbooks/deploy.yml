@@ -1,9 +1,9 @@
 ---
-# 2. Deploy: the workspaces of this repository onto ONE robot (notes/07). Copies robot/ to
-# /srv/robotont, writes /etc/robotont/robotont.env, pulls the images every workspace references
+# 2. Deploy: the stacks of this repository onto ONE robot (notes/07). Copies robot/ to
+# /srv/robotont, writes /etc/robotont/robotont.env, pulls the images every stack references
 # (GHCR, built by CI), installs robotont.service and the metrics timer, and restarts the active
-# workspace when its image changed. The first deploy selects robotont_default_workspace (driver).
-# Run it again after a release bump or a new workspace: 1 to 6 minutes, mostly the pull.
+# stack when its image changed. The first deploy selects robotont_default_stack (driver).
+# Run it again after a release bump or a new stack: 1 to 6 minutes, mostly the pull.
 #
 #   Input: robotont_id (Robot number) of a robot set up by "1. Setup Ubuntu".
 #   CLI:   ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
@@ -27,19 +27,19 @@
         name: "robotont-{{ robotont_id }}"
         groups: robots
 
-- name: Deploy the workspaces
+- name: Deploy the stacks
   hosts: robots
   become: true
   roles:
-    - robotont_workspaces
+    - robotont_stacks
   post_tasks:
     - name: Show the runtime status
-      ansible.builtin.command: /usr/local/bin/robotont-workspace status
+      ansible.builtin.command: /usr/local/bin/robotont-stack status
       become: true
       become_user: "{{ robotont_user }}"
       changed_when: false
-      register: workspace_status
+      register: stack_status
 
     - name: Report
       ansible.builtin.debug:
-        msg: "{{ inventory_hostname }}: deployed\n{{ workspace_status.stdout }}"
+        msg: "{{ inventory_hostname }}: deployed\n{{ stack_status.stdout }}"

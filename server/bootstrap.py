@@ -42,7 +42,7 @@ REPO_PATH = os.environ.get("REPO_PATH", "/repositories/robotont-management")
 REPO_BRANCH = os.environ.get("REPO_BRANCH", "main")
 INVENTORY_PATH = os.environ.get("INVENTORY_PATH", "inventory")
 TEMPLATES_FILE = os.environ.get("TEMPLATES_FILE", os.path.join(os.path.dirname(__file__), "templates.json"))
-WORKSPACES_DIR = os.environ.get("WORKSPACES_DIR", os.path.join(os.path.dirname(__file__), "..", "robot", "workspaces"))
+STACKS_DIR = os.environ.get("STACKS_DIR", os.path.join(os.path.dirname(__file__), "..", "robot", "stacks"))
 EXTRA_VARS = {
     name: os.environ[var]
     for name, var in (("wifi_pass", "WIFI_PASS"), ("wifi_hotspot_password", "WIFI_HOTSPOT_PASSWORD"),
@@ -191,20 +191,20 @@ def configure(api):
 
     with open(TEMPLATES_FILE) as f:
         templates = json.load(f)
-    # "@workspaces" in a dropdown = the directories under robot/workspaces (one per workspace).
-    workspaces = sorted(d for d in os.listdir(WORKSPACES_DIR)
-                        if not d.startswith("_") and os.path.isdir(os.path.join(WORKSPACES_DIR, d))
-                        and (os.path.exists(os.path.join(WORKSPACES_DIR, d, "compose.yaml"))
-                             or os.path.exists(os.path.join(WORKSPACES_DIR, d, "run.sh"))))
+    # "@stacks" in a dropdown = the directories under robot/stacks (one per stack).
+    stacks = sorted(d for d in os.listdir(STACKS_DIR)
+                        if not d.startswith("_") and os.path.isdir(os.path.join(STACKS_DIR, d))
+                        and (os.path.exists(os.path.join(STACKS_DIR, d, "compose.yaml"))
+                             or os.path.exists(os.path.join(STACKS_DIR, d, "run.sh"))))
     # "@networks" in a dropdown = this machine's networks (server/networks.json, written by the
     # host-networks service) plus the /24 of every enrolled robot. At least one entry is needed for
     # a dropdown; without any, a placeholder tells the operator to use the free-text field.
     network_values = network_choices()
     for t in templates:
         for var in t.get("survey_vars", []):
-            if var.get("values") == "@workspaces":
-                var["values"] = [{"name": w, "value": w} for w in workspaces]
-                print(f"  workspaces   {', '.join(workspaces)}")
+            if var.get("values") == "@stacks":
+                var["values"] = [{"name": w, "value": w} for w in stacks]
+                print(f"  stacks       {', '.join(stacks)}")
             if var.get("values") == "@networks":
                 var["values"] = network_values
                 print(f"  networks     {', '.join(v['name'] for v in network_values)}")

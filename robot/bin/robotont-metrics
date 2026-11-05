@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""robotont-metrics: workspace, container and device state as node_exporter textfile metrics and status.json.
+"""robotont-metrics: stack, container and device state as node_exporter textfile metrics and status.json.
 
 Runs from robotont-metrics.timer as root. Depends on python3 and the docker CLI only.
 Outputs:
@@ -17,7 +17,7 @@ import time
 
 PROJECT = "robotont"
 ENV_FILE = "/etc/robotont/robotont.env"
-WORKSPACE_FILE = "/etc/robotont/workspace"
+STACK_FILE = "/etc/robotont/stack"
 FW_FILE = "/etc/robotont/firmware-version"
 DEPLOYED_FILE = "/etc/robotont/deployed"      # touched by every "2. Deploy"
 PROM_DIR = os.environ.get("ROBOTONT_TEXTFILE_DIR", "/var/lib/prometheus/node-exporter")
@@ -113,7 +113,7 @@ def collect_containers():
         containers.append({
             "name": c.get("Name", "").lstrip("/"),
             "service": lbl.get("com.docker.compose.service", ""),
-            "workspace": lbl.get("robotont.workspace", ""),
+            "stack": lbl.get("robotont.stack", ""),
             "image": c.get("Config", {}).get("Image", ""),
             "state": c.get("State", {}).get("Status", "unknown"),
             "restarts": int(c.get("RestartCount", 0)),
@@ -124,7 +124,7 @@ def collect_containers():
 
 def main():
     env = read_env(ENV_FILE)
-    workspace = read_text(WORKSPACE_FILE, "host") or "host"
+    stack = read_text(STACK_FILE, "host") or "host"
     release = env.get("ROBOTONT_RELEASE", "")
     firmware = read_text(FW_FILE)
     service = service_state()
@@ -144,14 +144,14 @@ def main():
                 claims.setdefault(d, []).append(c["service"])
 
     lines = [
-        "# robotont-metrics: workspace, containers and devices of this robot",
-        f'robotont_workspace_info{labels({"workspace": workspace, "release": release})} 1',
+        "# robotont-metrics: stack, containers and devices of this robot",
+        f'robotont_stack_info{labels({"stack": stack, "release": release})} 1',
         f'robotont_info{labels({"release": release, "firmware": firmware})} 1',
         f'robotont_service_active {1 if service == "active" else 0}',
         f"robotont_docker_available {1 if docker_ok else 0}",
     ]
     for c in containers:
-        base = {"workspace": c["workspace"], "service": c["service"]}
+        base = {"stack": c["stack"], "service": c["service"]}
         lines.append(f'robotont_container_state{labels({**base, "state": c["state"]})} 1')
         lines.append(f'robotont_container_restarts_total{labels(base)} {c["restarts"]}')
         lines.append(f'robotont_container_up{labels({**base, "image": c["image"]})} {1 if c["state"] == "running" else 0}')
@@ -162,19 +162,19 @@ def main():
     for d in EXCLUSIVE:
         lines.append(f'robotont_device_conflict{labels({"device": d})} {1 if len(claims.get(d, [])) > 1 else 0}')
     # When the runtime was last deployed (marker touched by "2. Deploy"; older robots: robotont.env) and since when
-    # the active workspace has been selected (the state file is rewritten on every switch).
+    # the active stack has been selected (the state file is rewritten on every switch).
     deployed = file_mtime(DEPLOYED_FILE) or file_mtime(ENV_FILE)
-    workspace_since = file_mtime(WORKSPACE_FILE)
+    stack_since = file_mtime(STACK_FILE)
     lines.append(f"robotont_deploy_timestamp_seconds {deployed}")
-    lines.append(f"robotont_workspace_since_timestamp_seconds {workspace_since}")
+    lines.append(f"robotont_stack_since_timestamp_seconds {stack_since}")
     lines.append(f"robotont_metrics_timestamp_seconds {int(time.time())}")
     prom = "\n".join(lines) + "\n"
 
     status = {
-        "time": int(time.time()), "workspace": workspace, "release": release, "firmware": firmware,
+        "time": int(time.time()), "stack": stack, "release": release, "firmware": firmware,
         "service": service, "docker": docker_ok, "containers": containers,
         "devices": present, "claims": claims,
-        "deployed": deployed, "workspace_since": workspace_since,
+        "deployed": deployed, "stack_since": stack_since,
     }
     try:
         os.makedirs(STATUS_DIR, exist_ok=True)

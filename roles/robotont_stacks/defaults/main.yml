@@ -1,7 +1,7 @@
 ---
-# The account that owns the runtime (systemd User=, docker group, workspace). Students use it too.
+# The account that owns the runtime (systemd User=, docker group, stack). Students use it too.
 robotont_user: peko
-robotont_root: /srv/robotont                 # workspaces/, images/, releases/ ("the docker files")
+robotont_root: /srv/robotont                 # stacks/, images/, releases/ ("the docker files")
 ros_distribution: jazzy
 
 # Release and images (notes/04 section 2, notes/07). The tag is the release name; images come from
@@ -9,12 +9,12 @@ ros_distribution: jazzy
 robotont_release: "2026.09"                  # robot/releases/<release>.repos, also the image tag
 robotont_image_repo: ghcr.io/robotont
 robotont_base_image: ros:jazzy-ros-base
-robotont_pull_images: true                   # pull the images of every workspace on deploy
+robotont_pull_images: true                   # pull the images of every stack on deploy
 robotont_build_fallback: true                # build robotont-ros on the robot when the pull left it missing
 robotont_build_timeout: 3600
 
-# Workspace written on the FIRST deploy only (operational state afterwards, see notes/07).
-robotont_default_workspace: driver
+# Stack written on the FIRST deploy only (operational state afterwards, see notes/07).
+robotont_default_stack: driver
 
 # Bringup configuration, rendered into /etc/robotont/robotont.env.
 robotont_generation: "3"

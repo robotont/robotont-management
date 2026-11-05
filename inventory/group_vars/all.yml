@@ -16,14 +16,14 @@ id: "{{ robotont_id }}"
 # Do not set ansible_private_key_file or ansible_ssh_pass here: inventory variables override the
 # key that Semaphore passes on the command line.
 
-# The account that owns the runtime on the robot (systemd User=, docker group, workspace).
+# The account that owns the runtime on the robot (systemd User=, docker group, stack).
 robotont_user: peko
 
-# Workspaces (notes/07-container-runtime.md): deployed by "2. Deploy", selected by "3. Switch
-# workspace". Images come from GHCR, built by .github/workflows/images.yml; the tag is the release.
+# Stacks (notes/07-container-runtime.md): deployed by "2. Deploy", selected by "3. Switch
+# stack". Images come from GHCR, built by .github/workflows/images.yml; the tag is the release.
 robotont_release: "2026.09"             # robot/releases/<release>.repos, also the image tag
 robotont_image_repo: ghcr.io/robotont
-robotont_default_workspace: driver      # first deploy on a robot; "host" only where ROS is installed on the host
+robotont_default_stack: driver      # first deploy on a robot; "host" only where ROS is installed on the host
 robotont_realsense: true                # the NUC robots run the RealSense bringup today
 robotont_lidar: false
 robotont_camera: false

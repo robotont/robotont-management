@@ -1,6 +1,6 @@
 # Image build definitions. CI (.github/workflows/images.yml) builds the same Dockerfiles and pushes
 # them to GHCR; on a robot this file is only the fallback build when a pull is not possible
-# (playbooks/deploy.yml, roles/robotont_workspaces). Workspaces reference the images by name, so
+# (playbooks/deploy.yml, roles/robotont_stacks). Stacks reference the images by name, so
 # a built and a pulled image are interchangeable.
 #
 #   docker compose --env-file /etc/robotont/robotont.env -f /srv/robotont/images/compose.build.yaml build robotont-ros

@@ -1,0 +1,82 @@
+---
+# 3. Switch stack: activate a stack on ONE robot with the container runtime (notes/07).
+#   Inputs: robotont_id (Robot number), stack (a directory under robot/stacks)
+#   CLI:    ansible-playbook playbooks/switch_stack.yml -K -e robotont_id=123 -e stack=driver
+- name: Select the robot
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check the inputs
+      ansible.builtin.assert:
+        that:
+          - robotont_id is defined
+          - ('robotont-' ~ robotont_id) in groups['all']
+          - stack is defined
+          - stack is match('^[a-z0-9][a-z0-9-]{0,62}$')
+        fail_msg: >-
+          Needed: robotont_id of an enrolled robot (1. Setup Ubuntu) and stack ([a-z0-9-], max 63 characters).
+        quiet: true
+
+- name: Switch the Robotont stack
+  hosts: "robotont-{{ robotont_id | default('none') }}"
+  become: true
+  vars:
+    stack_wait_seconds: 60
+  tasks:
+    - name: Check that the container runtime is deployed
+      ansible.builtin.stat:
+        path: /usr/local/bin/robotont-stack
+      register: stack_tool
+
+    - name: Stop when the runtime is missing
+      ansible.builtin.assert:
+        that: stack_tool.stat.exists
+        fail_msg: "{{ inventory_hostname }} has no stacks yet: run 2. Deploy first."
+        quiet: true
+
+    - name: Validate the stack on the robot
+      ansible.builtin.command: /usr/local/bin/robotont-stack check {{ stack | quote }}
+      become: true
+      become_user: "{{ robotont_user }}"
+      changed_when: false
+
+    - name: Read the currently active stack
+      ansible.builtin.command: /usr/local/bin/robotont-stack current
+      changed_when: false
+      register: current_stack
+
+    - name: Write the new stack
+      ansible.builtin.copy:
+        content: "{{ stack }}\n"
+        dest: /etc/robotont/stack
+        owner: "{{ robotont_user }}"
+        group: "{{ robotont_user }}"
+        mode: "0644"
+
+    - name: Restart robotont.service with the new stack
+      ansible.builtin.systemd_service:
+        name: robotont.service
+        state: restarted
+
+    - name: Wait for robotont.service to be active
+      ansible.builtin.command: systemctl is-active robotont.service
+      register: service_state
+      changed_when: false
+      failed_when: false
+      retries: "{{ (stack_wait_seconds / 5) | int }}"
+      delay: 5
+      until: service_state.stdout == 'active'
+
+    - name: Give the containers time to start
+      ansible.builtin.pause:
+        seconds: 15
+
+    - name: Show the runtime status
+      ansible.builtin.command: /usr/local/bin/robotont-stack status
+      changed_when: false
+      register: stack_status
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}: {{ current_stack.stdout }} -> {{ stack }}\n\
+          {{ stack_status.stdout }}"

@@ -20,15 +20,15 @@ University of Tartu. It works from a Windows, macOS or Linux computer.
 <img src=".images/architecture.png" width="1000" title="Architecture">
 
 1. **Robotont.** Each robot runs Ubuntu Server and Docker. The robot software runs in
-   containers. In this project, a *workspace* is a set of containers that run together, for
-   example the driver alone, or the driver plus a demo. Exactly one workspace is active on a
+   containers. In this project, a *stack* is a set of containers that run together, for
+   example the driver alone, or the driver plus a demo. Exactly one stack is active on a
    robot at a time. The images come from the GitHub Container Registry; the robot never builds
    them. Two small exporters report the state of the robot every 15 seconds.
 2. **Management host.** Any computer on the same network as the robots. It runs three services
    in Docker: Semaphore, the web page with the jobs you run against a robot; Prometheus, which
    collects the state of every robot; and Grafana, the dashboard. All three start with one
    command and configure themselves.
-3. **Repository.** The Ansible playbooks behind the jobs, the workspace definitions, the image
+3. **Repository.** The Ansible playbooks behind the jobs, the stack definitions, the image
    recipes, and the list of robots. The list of robots is one small file per robot under
    `inventory/robots/`. The jobs read it, and the monitoring follows it automatically.
 
@@ -123,7 +123,7 @@ docker compose -f server/compose.yaml up -d
 ```
 
 Open http://localhost:3000 for the jobs and http://localhost:3001 for the dashboard. Run the
-same `up -d` command again after you change `server/.env` or add a workspace.
+same `up -d` command again after you change `server/.env` or add a stack.
 
 ## Add a robot
 
@@ -134,7 +134,7 @@ same `up -d` command again after you change `server/.env` or add a workspace.
 3. Run "1. Setup Ubuntu" with the address, the robot number, the robot type and whether the
    camera is fitted. The job takes about five minutes and reboots the robot once.
 4. Run "2. Deploy" with the robot number. The robot pulls its images and starts the `driver`
-   workspace. On a slow connection the pull takes a few minutes; the image is about 4 GB.
+   stack. On a slow connection the pull takes a few minutes; the image is about 4 GB.
 
 The robot now appears on the dashboard. Commit the new file under `inventory/robots/` so that
 the list of robots is shared.
@@ -166,34 +166,34 @@ about five minutes and reboots the robot once. Run it again to change the number
 
 ### 2. Deploy
 
-Installs or updates the robot software: the workspaces, the tools and the robot service. On the
-first deploy the robot pulls its images (about 4 GB) and starts the `driver` workspace.
+Installs or updates the robot software: the stacks, the tools and the robot service. On the
+first deploy the robot pulls its images (about 4 GB) and starts the `driver` stack.
 
 | Input | Meaning | Example |
 |---|---|---|
 | Robot number | A robot prepared by "1. Setup Ubuntu" | `123` |
 
-### 3. Switch workspace
+### 3. Switch stack
 
-Stops the active workspace and starts another one. The change survives a reboot.
+Stops the active stack and starts another one. The change survives a reboot.
 
 | Input | Meaning | Example |
 |---|---|---|
 | Robot number | A robot deployed by "2. Deploy" | `123` |
-| Workspace | A workspace from the repository; `host` runs the ROS installed on the robot itself (old robots) | `driver`, `demo-example` |
+| Stack | A stack from the repository; `host` runs the ROS installed on the robot itself (old robots) | `driver`, `demo-example` |
 
 ### 4. Run image
 
-Runs any container image as a workspace with the standard settings: host network, the ROS
+Runs any container image as a stack with the standard settings: host network, the ROS
 environment, and optional access to the mainboard, lidar and gamepad. Use it for experiments and
-quick demos. A workspace that needs more, such as several containers or volumes, belongs in the
-repository under `robot/workspaces/`.
+quick demos. A stack that needs more, such as several containers or volumes, belongs in the
+repository under `robot/stacks/`.
 
 | Input | Meaning | Example |
 |---|---|---|
 | Robot number | A robot deployed by "2. Deploy" | `123` |
 | Image | The image to run | `traefik/whoami:v1.11.0`, `ghcr.io/org/app:tag` |
-| Name | The workspace name (lowercase letters, digits, hyphens); empty takes it from the image | `whoami` |
+| Name | The stack name (lowercase letters, digits, hyphens); empty takes it from the image | `whoami` |
 | Command | Replaces the command of the image; empty keeps it | `ros2 run demo_nodes_cpp talker` |
 | Hardware access | `yes` mounts `/dev` and allows the mainboard, lidar and gamepad | `no` |
 
@@ -201,7 +201,7 @@ repository under `robot/workspaces/`.
 
 - **Remove a robot**: delete its file under `inventory/robots/` and run `up -d`.
 - **Bring in an old robot** with ROS installed on it: "1. Setup Ubuntu", then "2. Deploy". Its
-  ROS stays usable as the workspace `host`.
+  ROS stays usable as the stack `host`.
 
 ## The dashboard
 
@@ -209,12 +209,12 @@ Grafana lists every robot with its state and shows four alerts: robot down, serv
 a device claimed but not present, and a device claimed twice. Alerts are shown on the page, not
 sent anywhere.
 
-## Writing a workspace
+## Writing a stack
 
-A workspace is a directory under `robot/workspaces/` with a `compose.yaml`. Copy `demo-example`,
+A stack is a directory under `robot/stacks/` with a `compose.yaml`. Copy `demo-example`,
 rename the directory (lowercase letters, digits and hyphens), replace the extra service, and say
 in a label which devices the service opens. Run "2. Deploy" on a robot, then "3. Switch
-workspace". The dropdown in Semaphore lists the directories after the next `up -d`.
+stack". The dropdown in Semaphore lists the directories after the next `up -d`.
 
 ## When something does not work
 
@@ -230,10 +230,10 @@ workspace". The dropdown in Semaphore lists the directories after the next `up -
 ## Repository layout
 
 ```
-playbooks/        the jobs: find_robots, setup_ubuntu, deploy, switch_workspace, run_image
+playbooks/        the jobs: find_robots, setup_ubuntu, deploy, switch_stack, run_image
 roles/            what the jobs do on a robot
 inventory/        the list of robots and their defaults
-robot/            what is deployed to a robot: workspaces, image recipes, release files, tools
+robot/            what is deployed to a robot: stacks, image recipes, release files, tools
 server/           Docker Compose for Semaphore, Prometheus and Grafana
 scripts/          helpers, including check.sh, the static checks that also run in CI
 external/         the upstream robotont-setup playbooks (submodules), kept for old robots

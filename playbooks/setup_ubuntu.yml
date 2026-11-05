@@ -1,5 +1,5 @@
 ---
-# 1. Setup Ubuntu: everything a robot needs on the host before workspaces can be deployed, and
+# 1. Setup Ubuntu: everything a robot needs on the host before stacks can be deployed, and
 # its enrolment in the fleet. Once per robot; safe to re-run.
 #
 # Inputs (Semaphore dialog, or -e on the command line):

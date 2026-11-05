@@ -1,13 +1,13 @@
 ---
-# 4. Run image: run any container image on ONE robot as a workspace. Generates
-# /srv/robotont/workspaces/<name>/compose.yaml on the robot (one service with the shared Robotont
+# 4. Run image: run any container image on ONE robot as a stack. Generates
+# /srv/robotont/stacks/<name>/compose.yaml on the robot (one service with the shared Robotont
 # settings: host network, ROS environment, optional hardware access), pulls the image as the robot
-# user (so a private registry works after `docker login` there), activates the workspace and
+# user (so a private registry works after `docker login` there), activates the stack and
 # restarts robotont.service. Nothing is written to the repository. Back to the standard bringup
-# with "3. Switch workspace" driver; a generated workspace is re-activated by running this again.
+# with "3. Switch stack" driver; a generated stack is re-activated by running this again.
 #
 #   Inputs: robotont_id (Robot number), image (reference, e.g. traefik/whoami:v1.11.0 or
-#           ghcr.io/org/app:tag), workspace (Name, optional: default from the image),
+#           ghcr.io/org/app:tag), stack (Name, optional: default from the image),
 #           command (optional: overrides the image command), hardware (no/yes: /dev and the
 #           device cgroup rules, declares mainboard,lidar,gamepad)
 #   CLI:    ansible-playbook playbooks/run_image.yml -K -e robotont_id=123 -e image=traefik/whoami:v1.11.0
@@ -27,29 +27,29 @@
           traefik/whoami:v1.11.0 or ghcr.io/org/app:tag (no spaces).
         quiet: true
 
-    - name: Derive the workspace name from the image when none was given
+    - name: Derive the stack name from the image when none was given
       ansible.builtin.set_fact:
-        workspace: >-
-          {{ (workspace | default('') | trim) if (workspace | default('') | trim | length > 0) else
+        stack: >-
+          {{ (stack | default('') | trim) if (stack | default('') | trim | length > 0) else
              (image | regex_replace('@sha256:[0-9a-f]+$', '') | regex_replace(':[^/]+$', '') | basename
               | lower | regex_replace('[^a-z0-9-]', '-') | regex_replace('^-+', '') | truncate(63, true, '', 0)) }}
         hardware: "{{ hardware | default('no') | string | lower in ['true', 'yes'] }}"
 
-    - name: List the workspaces of the repository (their names are reserved)
+    - name: List the stacks of the repository (their names are reserved)
       ansible.builtin.find:
-        paths: "{{ playbook_dir }}/../robot/workspaces"
+        paths: "{{ playbook_dir }}/../robot/stacks"
         file_type: directory
         recurse: false
-      register: repo_workspaces
+      register: repo_stacks
 
-    - name: Check the workspace name
+    - name: Check the stack name
       ansible.builtin.assert:
         that:
-          - workspace is match('^[a-z0-9][a-z0-9-]{0,62}$')
-          - workspace not in (repo_workspaces.files | map(attribute='path') | map('basename') | list)
+          - stack is match('^[a-z0-9][a-z0-9-]{0,62}$')
+          - stack not in (repo_stacks.files | map(attribute='path') | map('basename') | list)
         fail_msg: >-
-          Name '{{ workspace }}' is not usable: use [a-z0-9-], up to 63 characters, and not the name
-          of a repository workspace ({{ repo_workspaces.files | map(attribute='path') | map('basename')
+          Name '{{ stack }}' is not usable: use [a-z0-9-], up to 63 characters, and not the name
+          of a repository stack ({{ repo_stacks.files | map(attribute='path') | map('basename')
           | reject('match', '^_') | sort | join(', ') }}).
         quiet: true
 
@@ -57,69 +57,69 @@
       ansible.builtin.add_host:
         name: "robotont-{{ robotont_id }}"
         groups: robots
-        workspace: "{{ workspace }}"
+        stack: "{{ stack }}"
         hardware: "{{ hardware }}"
 
 - name: Run the image on the robot
   hosts: robots
   become: true
   vars:
-    workspace_wait_seconds: 60
-    workspace_dir: "/srv/robotont/workspaces/{{ workspace }}"
+    stack_wait_seconds: 60
+    stack_dir: "/srv/robotont/stacks/{{ stack }}"
   tasks:
     - name: Check that the container runtime is deployed
       ansible.builtin.stat:
-        path: /usr/local/bin/robotont-workspace
-      register: workspace_tool
+        path: /usr/local/bin/robotont-stack
+      register: stack_tool
 
     - name: Stop when the runtime is missing
       ansible.builtin.assert:
-        that: workspace_tool.stat.exists
-        fail_msg: "{{ inventory_hostname }} has no workspaces yet: run 2. Deploy first."
+        that: stack_tool.stat.exists
+        fail_msg: "{{ inventory_hostname }} has no stacks yet: run 2. Deploy first."
         quiet: true
 
-    - name: Read the currently active workspace
-      ansible.builtin.command: /usr/local/bin/robotont-workspace current
+    - name: Read the currently active stack
+      ansible.builtin.command: /usr/local/bin/robotont-stack current
       changed_when: false
-      register: current_workspace
+      register: current_stack
 
-    - name: Generate and pull the workspace; remove it again when the image cannot be pulled
+    - name: Generate and pull the stack; remove it again when the image cannot be pulled
       block:
-        - name: Create {{ workspace_dir }}
+        - name: Create {{ stack_dir }}
           ansible.builtin.file:
-            path: "{{ workspace_dir }}"
+            path: "{{ stack_dir }}"
             state: directory
             mode: "0755"
 
         - name: Write the compose file
           ansible.builtin.template:
-            src: "{{ playbook_dir }}/../roles/robotont_workspaces/templates/image-workspace.compose.yaml.j2"
-            dest: "{{ workspace_dir }}/compose.yaml"
+            src: "{{ playbook_dir }}/../roles/robotont_stacks/templates/image-stack.compose.yaml.j2"
+            dest: "{{ stack_dir }}/compose.yaml"
             mode: "0644"
 
-        - name: Validate the workspace on the robot
-          ansible.builtin.command: /usr/local/bin/robotont-workspace check {{ workspace | quote }}
+        - name: Validate the stack on the robot
+          ansible.builtin.command: /usr/local/bin/robotont-stack check {{ stack | quote }}
           become: true
           become_user: "{{ robotont_user }}"
           changed_when: false
 
         - name: Pull the image as the robot user (the robot needs internet) {{ image }}
-          ansible.builtin.command: /usr/local/bin/robotont-workspace pull {{ workspace | quote }}
+          ansible.builtin.command: /usr/local/bin/robotont-stack pull {{ stack | quote }}
           become: true
           become_user: "{{ robotont_user }}"
           register: image_pull
           changed_when: "'updated' in image_pull.stdout"
       rescue:
-        - name: Remove the generated workspace (keeps the robot as it was)
+        - name: Remove the generated stack (keeps the robot as it was)
           ansible.builtin.file:
-            path: "{{ workspace_dir }}"
+            path: "{{ stack_dir }}"
             state: absent
-          when: current_workspace.stdout != workspace
+          when: current_stack.stdout != stack
 
         - name: Report the failure
           ansible.builtin.fail:
             msg: >-
-              Could not prepare workspace '{{ workspace }}' from {{ image }}; '{{ current_workspace.stdout }}'
+              Could not prepare stack '{{ stack }}' from {{ image }}; '{{ current_stack.stdout }}'
               keeps running. {{ ((image_pull.stdout_lines | default([])) + (image_pull.stderr_lines | default([])))
               | map('trim') | reject('equalto', '') | join(' | ') }}
 
@@ -127,15 +127,15 @@
       ansible.builtin.debug:
         msg: "{{ image_pull.stdout_lines }}"
 
-    - name: Activate the workspace
+    - name: Activate the stack
       ansible.builtin.copy:
-        content: "{{ workspace }}\n"
-        dest: /etc/robotont/workspace
+        content: "{{ stack }}\n"
+        dest: /etc/robotont/stack
         owner: "{{ robotont_user }}"
         group: "{{ robotont_user }}"
         mode: "0644"
 
-    - name: Restart robotont.service with the new workspace
+    - name: Restart robotont.service with the new stack
       ansible.builtin.systemd_service:
         name: robotont.service
         state: restarted
@@ -145,7 +145,7 @@
       register: service_state
       changed_when: false
       failed_when: false
-      retries: "{{ (workspace_wait_seconds / 5) | int }}"
+      retries: "{{ (stack_wait_seconds / 5) | int }}"
       delay: 5
       until: service_state.stdout == 'active'
 
@@ -154,14 +154,14 @@
         seconds: 15
 
     - name: Show the runtime status
-      ansible.builtin.command: /usr/local/bin/robotont-workspace status
+      ansible.builtin.command: /usr/local/bin/robotont-stack status
       changed_when: false
-      register: workspace_status
+      register: stack_status
 
     - name: Report
       ansible.builtin.debug:
         msg: >-
-          {{ inventory_hostname }}: {{ current_workspace.stdout }} -> {{ workspace }}
+          {{ inventory_hostname }}: {{ current_stack.stdout }} -> {{ stack }}
           ({{ image }}{{ ', hardware access' if hardware | bool else '' }}).
-          Back to the bringup: 3. Switch workspace driver. Re-activate later: 4. Run image with the same name.
-          {{ workspace_status.stdout }}
+          Back to the bringup: 3. Switch stack driver. Re-activate later: 4. Run image with the same name.
+          {{ stack_status.stdout }}

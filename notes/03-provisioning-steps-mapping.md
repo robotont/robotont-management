@@ -77,7 +77,7 @@ Decision codes: **keep** (copy as is), **adapt** (same intent, different module 
 | hold RPi kernel packages, IMX500 camera tasks (RPi) | defer | only relevant for `3lite`; port when Lite robots join the fleet |
 | unconditional reboot | drop | `reboot.yml` |
 
-### Role `robotont_software` (workspace build and update)
+### Role `robotont_software` (stack build and update)
 
 | Existing task | Decision | Fleet implementation |
 |---|---|---|
@@ -86,7 +86,7 @@ Decision codes: **keep** (copy as is), **adapt** (same intent, different module 
 | delete `build`, `install`, `logs` every run | adapt | only on release change or forced rebuild |
 | `rosdep install` with missing-key handling | keep | keep the logic and `changed_when: false`, but let real errors fail |
 | `bash -ic 'colcon build'` | adapt | `bash -lc 'source /opt/ros/jazzy/setup.bash && colcon build --symlink-install'` as `robotont_user`, `changed_when` tied to the release comparison |
-| `.bashrc` sources the workspace | keep | |
+| `.bashrc` sources the stack | keep | |
 | (none) | new | write `/etc/robotont/release` (release name, per-repository commit, build time) |
 | (none) | new | notify `restart robotont` when the build changed |
 

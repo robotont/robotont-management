@@ -1,26 +1,26 @@
 #!/bin/bash
-# robotont-workspace: select and run the Robotont workspace (what runs on the robot).
-#   robotont-workspace list                 workspaces available under /srv/robotont/workspaces
-#   robotont-workspace current              the active workspace name (/etc/robotont/workspace)
-#   robotont-workspace status               active workspace, service state, running containers
-#   robotont-workspace check <name>         validate a workspace (compose config, device declarations)
-#   robotont-workspace switch <name>        make <name> active and restart robotont.service
-#   robotont-workspace pull [name]          pull the images of every workspace (or of one); prints "updated" when the active one changed
-#   robotont-workspace stop                 stop robotont.service (the active workspace stays selected)
-#   robotont-workspace run                  used by robotont.service: run the active workspace in the foreground
-#   robotont-workspace down                 used by robotont.service: stop the compose project
+# robotont-stack: select and run the Robotont stack (what runs on the robot).
+#   robotont-stack list                 stacks available under /srv/robotont/stacks
+#   robotont-stack current              the active stack name (/etc/robotont/stack)
+#   robotont-stack status               active stack, service state, running containers
+#   robotont-stack check <name>         validate a stack (compose config, device declarations)
+#   robotont-stack switch <name>        make <name> active and restart robotont.service
+#   robotont-stack pull [name]          pull the images of every stack (or of one); prints "updated" when the active one changed
+#   robotont-stack stop                 stop robotont.service (the active stack stays selected)
+#   robotont-stack run                  used by robotont.service: run the active stack in the foreground
+#   robotont-stack down                 used by robotont.service: stop the compose project
 set -euo pipefail
 
 ROBOTONT_ROOT="${ROBOTONT_ROOT:-/srv/robotont}"
-WORKSPACES="$ROBOTONT_ROOT/workspaces"
+STACKS="$ROBOTONT_ROOT/stacks"
 ENV_FILE="${ROBOTONT_ENV_FILE:-/etc/robotont/robotont.env}"
-STATE_FILE="${ROBOTONT_STATE_FILE:-/etc/robotont/workspace}"
+STATE_FILE="${ROBOTONT_STATE_FILE:-/etc/robotont/stack}"
 PROJECT=robotont
 DEVICE_VOCABULARY="mainboard lidar gamepad realsense camera"
 EXCLUSIVE_DEVICES="mainboard lidar realsense camera"
 
 usage() { sed -n '2,11p' "$0"; }
-die() { echo "robotont-workspace: $*" >&2; exit 2; }
+die() { echo "robotont-stack: $*" >&2; exit 2; }
 
 current() {
   if [ -s "$STATE_FILE" ]; then tr -d '[:space:]' < "$STATE_FILE"; else echo host; fi
@@ -28,7 +28,7 @@ current() {
 
 list() {
   local d n
-  for d in "$WORKSPACES"/*/; do
+  for d in "$STACKS"/*/; do
     [ -d "$d" ] || continue
     n=$(basename "$d")
     [[ "$n" == _* ]] && continue
@@ -36,16 +36,16 @@ list() {
   done
 }
 
-workspace_dir() {
+stack_dir() {
   local name="$1"
-  [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die "invalid workspace name '$name' (use [a-z0-9-], max 63 characters)"
-  [ -d "$WORKSPACES/$name" ] || die "unknown workspace '$name'; available: $(list | tr '\n' ' ')"
-  echo "$WORKSPACES/$name"
+  [[ "$name" =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die "invalid stack name '$name' (use [a-z0-9-], max 63 characters)"
+  [ -d "$STACKS/$name" ] || die "unknown stack '$name'; available: $(list | tr '\n' ' ')"
+  echo "$STACKS/$name"
 }
 
-compose() {  # compose <workspace> <compose args...>
-  local dir; dir="$(workspace_dir "$1")"; shift
-  ROBOTONT_WORKSPACE="$(basename "$dir")" docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$dir/compose.yaml" "$@"
+compose() {  # compose <stack> <compose args...>
+  local dir; dir="$(stack_dir "$1")"; shift
+  ROBOTONT_STACK="$(basename "$dir")" docker compose -p "$PROJECT" --env-file "$ENV_FILE" -f "$dir/compose.yaml" "$@"
 }
 
 read -r -d '' CHECK_PY <<'PY' || true
@@ -75,22 +75,22 @@ for w in warnings:
 for e in errors:
     print(f"error: {e}", file=sys.stderr)
 summary = ", ".join(f"{d} <- {'+'.join(s)}" for d, s in claims.items()) or "none"
-print(f"workspace '{name}': {len(services)} service(s); devices: {summary}")
+print(f"stack '{name}': {len(services)} service(s); devices: {summary}")
 sys.exit(1 if errors else 0)
 PY
 
 check() {
-  local name="$1" dir; dir="$(workspace_dir "$name")"
+  local name="$1" dir; dir="$(stack_dir "$name")"
   if [ -f "$dir/run.sh" ] && [ ! -f "$dir/compose.yaml" ]; then
     [ -x "$dir/run.sh" ] || die "$dir/run.sh is not executable"
-    echo "workspace '$name': host script, ok"
+    echo "stack '$name': host script, ok"
     return 0
   fi
-  [ -f "$dir/compose.yaml" ] || die "workspace '$name' has neither compose.yaml nor run.sh"
+  [ -f "$dir/compose.yaml" ] || die "stack '$name' has neither compose.yaml nor run.sh"
   compose "$name" config --format json | python3 -c "$CHECK_PY" "$name" "$DEVICE_VOCABULARY" "$EXCLUSIVE_DEVICES"
 }
 
-images_of() {  # images_of <workspace>: image references of a compose workspace, one per line
+images_of() {  # images_of <stack>: image references of a compose stack, one per line
   compose "$1" config --images 2>/dev/null | sort -u
 }
 
@@ -101,17 +101,17 @@ image_ids() {  # image_ids <image...>: "<image> <id or missing>" per line
   done
 }
 
-pull() {  # pull [workspace]: every workspace, or just the one named
+pull() {  # pull [stack]: every stack, or just the one named
   local active before after name dir tmp rc=0 missing=0 names
-  if [ $# -ge 1 ]; then workspace_dir "$1" > /dev/null; names="$1"; else names="$(list)"; fi
+  if [ $# -ge 1 ]; then stack_dir "$1" > /dev/null; names="$1"; else names="$(list)"; fi
   active="$(current)"
   tmp="$(mktemp)"
   # shellcheck disable=SC2046  # one image reference per word is intended
   before="$(image_ids $(images_of "$active" 2>/dev/null))"
   for name in $names; do
-    dir="$WORKSPACES/$name"
+    dir="$STACKS/$name"
     [ -f "$dir/compose.yaml" ] || continue
-    echo "pull: workspace '$name'"
+    echo "pull: stack '$name'"
     if ! compose "$name" pull --quiet --ignore-buildable > "$tmp" 2>&1; then rc=1; fi
     sed 's/^/  /' "$tmp"
     if grep -qE 'denied|not found|manifest unknown' "$tmp"; then
@@ -121,24 +121,24 @@ pull() {  # pull [workspace]: every workspace, or just the one named
   rm -f "$tmp"
   # shellcheck disable=SC2046
   after="$(image_ids $(images_of "$active" 2>/dev/null))"
-  if [ "$before" != "$after" ]; then echo "updated: images of the active workspace '$active' changed"; fi
+  if [ "$before" != "$after" ]; then echo "updated: images of the active stack '$active' changed"; fi
   for name in $names; do
-    [ -f "$WORKSPACES/$name/compose.yaml" ] || continue
+    [ -f "$STACKS/$name/compose.yaml" ] || continue
     # shellcheck disable=SC2046
     while read -r img id; do
       [ -n "$img" ] || continue
-      if [ "$id" = missing ]; then echo "missing: $img (workspace '$name')"; missing=1; fi
+      if [ "$id" = missing ]; then echo "missing: $img (stack '$name')"; missing=1; fi
     done <<< "$(image_ids $(images_of "$name"))"
   done
-  [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ] && echo "pull: every workspace image is present"
+  [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ] && echo "pull: every stack image is present"
   [ "$missing" -eq 0 ] && [ "$rc" -eq 0 ]
 }
 
 status() {
-  echo "workspace:  $(current)"
+  echo "stack:  $(current)"
   echo "service: $(systemctl is-active robotont.service 2>/dev/null || echo unknown)"
   docker ps --filter "label=com.docker.compose.project=$PROJECT" \
-    --format 'table {{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "robotont.workspace"}}\t{{.Label "robotont.devices"}}' 2>/dev/null \
+    --format 'table {{.Names}}\t{{.State}}\t{{.Status}}\t{{.Label "robotont.stack"}}\t{{.Label "robotont.devices"}}' 2>/dev/null \
     || echo "containers: docker not available"
 }
 
@@ -146,35 +146,35 @@ case "${1:-status}" in
   list)     list ;;
   current)  current ;;
   status)   status ;;
-  check)    [ $# -eq 2 ] || die "usage: robotont-workspace check <name>"
+  check)    [ $# -eq 2 ] || die "usage: robotont-stack check <name>"
             check "$2" ;;
   pull)     pull "${@:2}" ;;
-  switch)   [ $# -eq 2 ] || die "usage: robotont-workspace switch <name>"
+  switch)   [ $# -eq 2 ] || die "usage: robotont-stack switch <name>"
             check "$2"
             printf '%s\n' "$2" > "$STATE_FILE"
             sudo systemctl restart robotont.service
             echo "switched to '$2'"
             status ;;
   stop)     sudo systemctl stop robotont.service
-            echo "robotont.service stopped; the selected workspace stays '$(current)'" ;;
-  run)      name="$(current)"; dir="$(workspace_dir "$name")"
+            echo "robotont.service stopped; the selected stack stays '$(current)'" ;;
+  run)      name="$(current)"; dir="$(stack_dir "$name")"
             if [ -f "$dir/compose.yaml" ]; then
-              exec env ROBOTONT_WORKSPACE="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
+              exec env ROBOTONT_STACK="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
                 -f "$dir/compose.yaml" up --remove-orphans --no-color
             else
-              exec env ROBOTONT_WORKSPACE="$name" "$dir/run.sh"
+              exec env ROBOTONT_STACK="$name" "$dir/run.sh"
             fi ;;
-  down)     name="$(current)"; dir="$WORKSPACES/$name"
+  down)     name="$(current)"; dir="$STACKS/$name"
             if [ -f "$dir/compose.yaml" ]; then
-              ROBOTONT_WORKSPACE="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
+              ROBOTONT_STACK="$name" docker compose -p "$PROJECT" --env-file "$ENV_FILE" \
                 -f "$dir/compose.yaml" down --remove-orphans --timeout 10 || true
             fi
-            # containers of a previous workspace that the current file does not know about
+            # containers of a previous stack that the current file does not know about
             leftovers=$(docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" 2>/dev/null || true)
             if [ -n "$leftovers" ]; then
               # shellcheck disable=SC2086
               docker rm -f $leftovers >/dev/null 2>&1 || true
             fi ;;
   -h|--help|help) usage ;;
-  *)        die "unknown command '$1' (try: robotont-workspace help)" ;;
+  *)        die "unknown command '$1' (try: robotont-stack help)" ;;
 esac

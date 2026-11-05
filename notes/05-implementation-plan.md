@@ -29,7 +29,7 @@ questions listed in section 6.
    is no git dependency on `robotont-setup`. The robot contract from 02 section 4 is preserved, so
    robots provisioned the old way are adopted by running "Provision" once. Consolidation with
    `robotont-setup` is proposed to the maintainers afterwards *(confirm)*.
-4. Accounts: the robot user stays `peko` (students, service, workspace). A dedicated
+4. Accounts: the robot user stays `peko` (students, service, stack). A dedicated
    `fleet-admin` account with SSH key and passwordless sudo is created by a one-time bootstrap
    playbook and used by Semaphore *(confirm)*.
 5. Reachability: robots are on the lab network (Wi-Fi client profile or Ethernet) and resolvable
@@ -66,7 +66,7 @@ robotont-management/
 │   ├── common/
 │   ├── ros/
 │   ├── robotont/                 identity, udev, service wrapper, network profiles
-│   ├── robotont_software/        pinned workspace
+│   ├── robotont_software/        pinned stack
 │   ├── firmware/                 Milestone 2
 │   └── monitoring/               Milestone 3
 ├── releases/
@@ -176,7 +176,7 @@ whether a freshly provisioned NUC robot starts at all.
 2. `robotont_support` `package.xml` lacks exec dependencies for `realsense2_camera`,
    `depthimage_to_laserscan`, `rplidar_ros`, `demo_teleop`, `demo_slam`,
    `robotont_nuc_description` and `robotont_lite_description`, so `rosdep` cannot install the
-   apt ones, and the workspace list has to carry the git ones.
+   apt ones, and the stack list has to carry the git ones.
 3. `robotont-setup`: `jazzy-devel` in the NUC `.rosinstall` is stale; the `robots-update` role
    references a missing template; unconditional reboot; hard-coded `wlp58s0`; sleep and
    hibernate not disabled; deprecated `apt_key`. Alternatively, adopt the roles from this

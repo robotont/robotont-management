@@ -64,12 +64,12 @@ services:
     environment:
       SEMAPHORE_URL: http://semaphore:3000
       TEMPLATES_FILE: /bootstrap/templates.json
-      WORKSPACES_DIR: /workspaces                    # fills the Workspace dropdown of "3. Switch workspace"
+      STACKS_DIR: /stacks                    # fills the Stack dropdown of "3. Switch stack"
     volumes:
       # The whole server/ directory rather than single files: a file replaced on the host (editor,
       # git) would keep its old content behind a single-file bind mount until the container is recreated.
       - .:/bootstrap:ro
-      - ../robot/workspaces:/workspaces:ro
+      - ../robot/stacks:/stacks:ro
       # The repository itself, read-write: the bootstrap applies patches/ to the submodules.
       - ..:/repositories/robotont-management
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"

@@ -10,7 +10,7 @@ delivered (later step). `playbooks/status.yml` stays the command-line report.
 | Where | What | Installed by |
 |---|---|---|
 | robot | `prometheus-node-exporter` (Ubuntu package, `:9100`, all interfaces; the firewall is off for DDS anyway) with the textfile collector on `/var/lib/prometheus/node-exporter` | `roles/monitoring`, part of "1. Setup Ubuntu" (re-run it on robots set up before 2026-11-04) |
-| robot | `robotont-metrics.timer` writes `robotont.prom` (workspace, release, service, containers, devices) every 15 s into that directory | "2. Deploy" ([07](07-container-runtime.md), Monitoring hooks) |
+| robot | `robotont-metrics.timer` writes `robotont.prom` (stack, release, service, containers, devices) every 15 s into that directory | "2. Deploy" ([07](07-container-runtime.md), Monitoring hooks) |
 | server | Prometheus `prom/prometheus:v3.15.1`, port `9090`, 30 days retention, config `server/prometheus/prometheus.yml`, rules `server/prometheus/rules.yml` | `docker compose -f server/compose.yaml up -d` |
 | server | Grafana `grafana/grafana:13.2.5`, port `3001`, `admin` / `admin`, anonymous viewers allowed; datasource and dashboard provisioned from `server/grafana/` | same |
 
@@ -39,25 +39,25 @@ questions, in this order:
 - **Top**: robots online, offline, ready to drive, alerts firing, enrolled, containers running.
 - **Robots**: one row per enrolled robot, online or not: state, **last seen** (relative time,
   kept while the robot is offline), **ready** (reachable, service active, mainboard present),
-  workspace and release, since when the workspace is selected, when it was last deployed, service,
+  stack and release, since when the stack is selected, when it was last deployed, service,
   mainboard, lidar and gamepad present, container restarts, CPU temperature, root disk, uptime,
   address. Offline rows show only state, last seen and address.
 - **Offline robots** with their last seen time, next to the **alerts firing**.
-- **One block per robot** (variable `Robot`, all by default): state, ready, workspace, release,
+- **One block per robot** (variable `Robot`, all by default): state, ready, stack, release,
   the two timestamps, uptime; every device; service, containers, restarts; CPU, memory, disk,
   temperature, restarts and network over time.
 
 Where the values come from: `up` (Prometheus), `node_*` (node_exporter), `robotont_*` written by
 `robotont-metrics` on the robot ([07](07-container-runtime.md), Monitoring hooks: now including
-`robotont_deploy_timestamp_seconds` and `robotont_workspace_since_timestamp_seconds`, the
-modification times of a marker touched by every Deploy and of the workspace state file), and two recording rules in
+`robotont_deploy_timestamp_seconds` and `robotont_stack_since_timestamp_seconds`, the
+modification times of a marker touched by every Deploy and of the stack state file), and two recording rules in
 `server/prometheus/rules.yml`: `robotont_last_seen_timestamp_seconds` (the last successful
 scrape, re-emitted while the robot is down, so it survives an outage of the robot but not an
 outage of Prometheus longer than 5 minutes) and `robotont_ready`.
 
 Not available yet, because nothing exports it: battery voltage and odometry (ROS topics of the
 driver), the firmware version (the `firmware` label is empty until `/etc/robotont/firmware-version`
-is written). A small exporter inside the driver workspace would be the way to add them.
+is written). A small exporter inside the driver stack would be the way to add them.
 
 Edit the dashboard in Grafana as admin, then export the JSON back into the repository
 (provisioned dashboards are not saved from the UI).
@@ -68,12 +68,12 @@ Edit the dashboard in Grafana as admin, then export the JSON back into the repos
 |---|---|---|
 | `RobotDown` | `up{job="robots"} == 0` for 2 min (off, no network, node_exporter stopped) | warning |
 | `RobotontServiceInactive` | `robotont_service_active == 0` for 2 min | warning |
-| `RobotontDeviceMissing` | a container of the active workspace claims a device (`robotont_container_device`) that is not enumerated (`robotont_device_present == 0`) for 1 min | info |
+| `RobotontDeviceMissing` | a container of the active stack claims a device (`robotont_container_device`) that is not enumerated (`robotont_device_present == 0`) for 1 min | info |
 | `RobotontDeviceConflict` | two running containers claim an exclusive device | warning |
 
 Seen in Prometheus (`/alerts`) and in the dashboard's alert table. Alertmanager and
 notifications are a later step. On a bench robot without mainboard and lidar,
-`RobotontDeviceMissing` fires for the `driver` workspace, which is the intended signal.
+`RobotontDeviceMissing` fires for the `driver` stack, which is the intended signal.
 
 ## Checks
 
