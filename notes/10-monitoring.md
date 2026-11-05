@@ -47,11 +47,10 @@ questions, in this order:
   container list in the style of `docker ps`: name, state, started, restarts, image, devices.
   Built from `robotont_container_info` (labels name, image, state, devices),
   `robotont_container_started_timestamp_seconds` and `robotont_container_restarts_total`,
-  joined on the container name.
+  joined on the container name; below it four graphs: CPU, memory, temperature, root disk.
 
 Simplified on 2026-11-05 at Leonid's request (before: six counters, an offline list, and per
-robot 15 stats and 6 graphs). The `node_*` series are still scraped, so the graphs can come back
-when they are needed.
+robot 15 stats and 6 graphs).
 
 Where the values come from: `up` (Prometheus), `node_*` (node_exporter), `robotont_*` written by
 `robotont-metrics` on the robot ([07](07-container-runtime.md), Monitoring hooks: now including
