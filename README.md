@@ -217,6 +217,10 @@ rename the directory (lowercase letters, digits and hyphens), replace the extra 
 in a label which devices the service opens. Run "2. Deploy" on a robot, then "3. Switch
 stack". The dropdown in Semaphore lists the directories after the next `up -d`.
 
+A package from another repository runs as a container image that its own repository
+publishes. `robot/images/README.md` is the guide for its maintainer: four files to add, then
+"4. Run image" with the image name.
+
 ## When something does not work
 
 | Symptom | Likely cause |
