@@ -49,7 +49,7 @@
     mode: "0640"
   notify: Restart robotont
 
-# Robots deployed before the workspace naming (docs/07): move the state file, drop the old tree.
+# Robots deployed before the workspace naming (notes/07): move the state file, drop the old tree.
 - name: Look for a state file from the preset naming
   ansible.builtin.stat:
     path: /etc/robotont/preset

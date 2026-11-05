@@ -19,7 +19,7 @@ id: "{{ robotont_id }}"
 # The account that owns the runtime on the robot (systemd User=, docker group, workspace).
 robotont_user: peko
 
-# Workspaces (docs/07-container-runtime.md): deployed by "2. Deploy", selected by "3. Switch
+# Workspaces (notes/07-container-runtime.md): deployed by "2. Deploy", selected by "3. Switch
 # workspace". Images come from GHCR, built by .github/workflows/images.yml; the tag is the release.
 robotont_release: "2026.09"             # robot/releases/<release>.repos, also the image tag
 robotont_image_repo: ghcr.io/robotont

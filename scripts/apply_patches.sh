@@ -6,7 +6,7 @@
 #
 # Why at bootstrap time: playbooks/setup_ros.yml imports the upstream playbooks statically, so
 # their role files are parsed when the playbook loads, before any play (including the patch play)
-# runs. A fresh checkout therefore ran unpatched once (seen 2026-11-04, docs/06 test log).
+# runs. A fresh checkout therefore ran unpatched once (seen 2026-11-04, notes/06 test log).
 set -eu
 root="$(cd "$(dirname "$0")/.." && pwd)"
 status=0

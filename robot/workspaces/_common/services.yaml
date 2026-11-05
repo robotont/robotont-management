@@ -2,7 +2,7 @@
 # so that host networking, IPC, device access and labels are written once.
 #
 # Variables come from /etc/robotont/robotont.env (passed as --env-file by robotont-workspace) and
-# ROBOTONT_WORKSPACE is set by robotont-workspace itself. See robot/workspaces/README.md.
+# ROBOTONT_WORKSPACE is set by robotont-workspace itself. See notes/workspaces.md.
 services:
   # Anything that speaks ROS 2 on this robot.
   ros-app:
@@ -15,7 +15,7 @@ services:
       ROS_DOMAIN_ID: "${ROS_DOMAIN_ID}"
       # Containers run as root, host processes as peko: Fast DDS shared-memory segments of one are
       # not readable by the other, so discovery works but data never arrives. UDP only, both ways.
-      # Verified on robotont-123 (2026-09-27, docs/07 test log).
+      # Verified on robotont-123 (2026-09-27, notes/07 test log).
       FASTDDS_BUILTIN_TRANSPORTS: UDPv4
       ROBOTONT_ID: "${ROBOTONT_ID}"
       ROBOTONT_GENERATION: "${ROBOTONT_GENERATION}"

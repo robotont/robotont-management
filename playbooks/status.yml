@@ -1,5 +1,5 @@
 ---
-# Status: command-line check, not a Semaphore task (Grafana takes this role later; docs/05).
+# Status: command-line check, not a Semaphore task (Grafana takes this role later; notes/05).
 # Read-only, every enrolled robot, no inputs. Reports reachability, sudo, robotont.service,
 # mainboard, hostname, uptime, disk, deployed workspace commits and (container runtime) the active
 # workspace and its containers. Red only when a robot is unreachable, sudo fails, a submodule is

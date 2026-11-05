@@ -1,4 +1,4 @@
-# Dashboards provisioned from files: server/grafana/dashboards/*.json (docs/10-monitoring.md).
+# Dashboards provisioned from files: server/grafana/dashboards/*.json (notes/10-monitoring.md).
 apiVersion: 1
 providers:
   - name: robotont

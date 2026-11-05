@@ -1,5 +1,5 @@
 ---
-# node_exporter on every robot (docs/10-monitoring.md). Ubuntu's package; its unit reads ARGS from
+# node_exporter on every robot (notes/10-monitoring.md). Ubuntu's package; its unit reads ARGS from
 # /etc/default/prometheus-node-exporter. The textfile directory is where robotont-metrics
 # (roles/robotont_workspaces) writes robotont.prom every 15 s.
 monitoring_node_exporter_package: prometheus-node-exporter

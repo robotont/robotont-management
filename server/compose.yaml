@@ -32,7 +32,7 @@ services:
       - semaphore_data:/var/lib/semaphore      # database and key store
       - semaphore_config:/etc/semaphore        # config.json generated on first start
       - semaphore_tmp:/tmp/semaphore           # task workspaces
-      # Local repository (docs/semaphore-setup.md): this working tree, including the submodules,
+      # Local repository (notes/semaphore-setup.md): this working tree, including the submodules,
       # is used directly. Remove the line when Semaphore clones from GitHub instead.
       - ..:/repositories/robotont-management
     # Robot names: the container's resolver forwards to the Docker host's resolver. On Docker
@@ -74,7 +74,7 @@ services:
       - "${ROBOT_SSH_KEY_FILE:?set ROBOT_SSH_KEY_FILE in server/.env}:/run/secrets/robot_ssh_key:ro"
     entrypoint: ["python3", "/bootstrap/bootstrap.py"]
 
-  # Monitoring (docs/10-monitoring.md): Prometheus scrapes node_exporter on every robot listed in
+  # Monitoring (notes/10-monitoring.md): Prometheus scrapes node_exporter on every robot listed in
   # prometheus/targets/robots.json (rendered from inventory/robots/ by the bootstrap and by
   # "1. Setup Ubuntu"); Grafana serves the provisioned "Robotont fleet" dashboard on port 3001.
   prometheus:

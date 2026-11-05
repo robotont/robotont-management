@@ -4,7 +4,7 @@ robotont_user: peko
 robotont_root: /srv/robotont                 # workspaces/, images/, releases/ ("the docker files")
 ros_distribution: jazzy
 
-# Release and images (docs/04 section 2, docs/07). The tag is the release name; images come from
+# Release and images (notes/04 section 2, notes/07). The tag is the release name; images come from
 # GHCR (built by .github/workflows/images.yml) and are built on the robot only as a fallback.
 robotont_release: "2026.09"                  # robot/releases/<release>.repos, also the image tag
 robotont_image_repo: ghcr.io/robotont
@@ -13,7 +13,7 @@ robotont_pull_images: true                   # pull the images of every workspac
 robotont_build_fallback: true                # build robotont-ros on the robot when the pull left it missing
 robotont_build_timeout: 3600
 
-# Workspace written on the FIRST deploy only (operational state afterwards, see docs/07).
+# Workspace written on the FIRST deploy only (operational state afterwards, see notes/07).
 robotont_default_workspace: driver
 
 # Bringup configuration, rendered into /etc/robotont/robotont.env.

@@ -1,5 +1,5 @@
 ---
-# 2. Deploy: the workspaces of this repository onto ONE robot (docs/07). Copies robot/ to
+# 2. Deploy: the workspaces of this repository onto ONE robot (notes/07). Copies robot/ to
 # /srv/robotont, writes /etc/robotont/robotont.env, pulls the images every workspace references
 # (GHCR, built by CI), installs robotont.service and the metrics timer, and restarts the active
 # workspace when its image changed. The first deploy selects robotont_default_workspace (driver).

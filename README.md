@@ -1,110 +1,150 @@
 # Robotont Management
 
-# Overview
+Robotont Management sets up and runs a fleet of Robotont robots from one computer. You install
+Ubuntu on a robot once. After that, you set the robot up, give it its software, choose what it
+runs, and watch its state from a web page. No manual work on the robot is needed.
 
-Centralized management and monitoring for Robotont robots.
+It is built for the Robotont 3 (Intel NUC) and the Robotont 3 Lite (Raspberry Pi 5) of the
+University of Tartu. It works from a Windows, macOS or Linux computer.
 
-Initial scope:
-- Provision Robotont computers using Ansible
-- Update Robotont ROS software
-- Update Robotont firmware
-- Provide a simple management interface using Semaphore
-- Monitor Robotont health using Prometheus and Grafana
+## What you can do
 
-Planned architecture:
-- Ansible for configuration and deployment
-- Semaphore as the management UI
-- Prometheus for metrics collection
-- Grafana for monitoring
-- Docker Compose for management-server services
+- Set up a new robot in about five minutes: network, hostname, devices, Docker.
+- Deploy the robot software as Docker images, built automatically by GitHub.
+- Switch what a robot runs: the standard driver, a demo, a test, or any container image you name.
+- See every robot on one dashboard: online or not, last seen, what it runs, its devices, its health.
+- Bring an older robot, set up by hand or by the old scripts, under the same management.
 
-Future work may include:
-- Automated Ubuntu installation
-- Containerized Robotont runtime
-- More advanced inventory management
-- VPN / overlay networking
-- Centralized logging
-
-## Architecture
+## How it works
 
 <img src=".images/architecture.png" width="500" title="Architecture">
 
----
+There are three parts.
 
-<img src=".images/architecture_detailed.png" width="1000" title="Architecture">
-## Status (2026-09-27)
+**The robots.** Each robot runs Ubuntu Server and Docker. The robot software runs in containers.
+A *workspace* is a set of containers that run together, for example the driver alone, or the
+driver plus a demo. Exactly one workspace is active on a robot at a time. The images come from
+the GitHub Container Registry; the robot never builds them. A small service on the robot reports
+its state every 15 seconds.
 
-Robots are Docker-only: "1. Setup Ubuntu" prepares the host (network, hostname, udev, Wi-Fi,
-Docker Engine) and "2. Deploy" puts the *workspaces* of this repository onto a robot, pulling the
-images that GitHub Actions builds and pushes to GHCR. "3. Switch workspace" selects what runs:
-the driver, a demo, later a student environment ([docs/07](docs/07-container-runtime.md)), and
-"4. Run image" runs any container image on a robot as a workspace without touching the repository.
-Monitoring: node_exporter on every robot, Prometheus and Grafana next to Semaphore with a fleet
-dashboard and alert rules ([docs/10](docs/10-monitoring.md)).
-Verified end to end on a Robotont 3 Lite (Raspberry Pi 5) with mainboard and lidar; the first
-CI image build is pending a push. The upstream `robotont-setup` playbooks remain as
-"Setup ROS (legacy)" for robots that keep ROS on the host (git submodules, [docs/06](docs/06-v1-reproduce-current-setup.md)).
+**The management host.** Any computer on the same network as the robots. It runs three services
+in Docker: Semaphore, the web page with the tasks you run against a robot; Prometheus, which
+collects the state of every robot; and Grafana, the dashboard. All three start with one command
+and configure themselves.
 
-## Quick start
+**This repository.** The Ansible playbooks behind the tasks, the workspace definitions, the image
+recipes, and the list of robots. The list of robots is one small file per robot under
+`inventory/robots/`. The tasks read it, and the monitoring follows it automatically.
 
-Semaphore: `cp server/.env.example server/.env`, fill in the robot-side values, then
-`docker compose -f server/compose.yaml up -d`. The project, keys, inventory, environment and the
-tasks are created automatically ([docs/semaphore-setup.md](docs/semaphore-setup.md)); log in as
-`admin` / `admin` at http://localhost:3000, run "1. Setup Ubuntu", then "2. Deploy"; the fleet
-dashboard is at http://localhost:3001. What the host
-machine needs (Docker, git, mDNS, the network) is in [docs/00-host-setup.md](docs/00-host-setup.md);
-"0. Find robots" prints a robot's address when `robotont-N.local` does not resolve.
+What happens when you add a robot: you write the card with Raspberry Pi Imager, the robot boots
+and announces its name on the network, you run one task that prepares the operating system and
+records the robot in the list, and you run a second task that installs the software. From then on
+the robot starts its active workspace at every boot by itself.
 
-The same from a terminal:
+## What you need
+
+| Item | Details |
+|---|---|
+| A management computer | Docker with Compose (Docker Desktop on Windows or macOS, Docker Engine on Linux) and git. Nothing else; Ansible runs inside a container. |
+| A network shared with the robots | The lab Wi-Fi or a router with DHCP is the normal case. A cable from the robot into your computer works for a bench, with connection sharing enabled on the computer. A phone hotspot does not work: it isolates its clients from each other. |
+| Name resolution | Robots announce themselves as `robotont-N.local`. Windows and macOS resolve such names by default. On Linux install `avahi-daemon` and `libnss-mdns`. If the name does not resolve, the task "0. Find robots" prints the address instead. |
+| The robot card | Written with Raspberry Pi Imager: Ubuntu Server 24.04 LTS (64-bit), hostname `robotont-N`, user `peko` with a password, your public SSH key, optionally the lab Wi-Fi. The first boot must have internet, otherwise the name service is never installed. |
+| One secrets file | `server/.env`: the path to your SSH key, the `peko` password, the Wi-Fi password of the robot hotspot and the lab Wi-Fi. It is never committed. |
+| Access to the images | Until the image package on GitHub is public, log in once per robot with `docker login ghcr.io` as `peko` and a read-only token. |
+
+Credentials: Semaphore and Grafana open with `admin` / `admin` and are reachable only from the
+management computer unless you set `SEMAPHORE_BIND=0.0.0.0` in `server/.env`. The `peko` password
+is the only robot secret, and only the maintainer needs it.
+
+## Start
 
 ```
-git clone --recurse-submodules git@github.com:robotont/robotont-management.git
+git clone --recurse-submodules https://github.com/robotont/robotont-management.git
 cd robotont-management
-ansible-playbook playbooks/setup_ubuntu.yml -K -e robot_address=robotont-123.local -e robotont_id=123 -e robot_type=3lite -e robotont_camera=false \
-  -e wifi_hotspot_password=... -e wifi_client_ssid=... -e wifi_client_password=...
-ansible-playbook playbooks/deploy.yml -K -e robotont_id=123
-ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=test-talker
+cp server/.env.example server/.env        # fill in the values
+docker compose -f server/compose.yaml up -d
 ```
 
-## Checks
+Open http://localhost:3000 for the tasks and http://localhost:3001 for the dashboard. Run the
+same `up -d` command again after you change `server/.env` or add a workspace.
 
-`scripts/check.sh` runs the static checks (playbook syntax, yamllint, ansible-lint, shellcheck,
-`py_compile`, JSON, `docker compose config`, promtool, line endings) and prints PASS, FAIL or
-SKIP per step; `.github/workflows/checks.yml` runs the same script on every push and pull request.
-Tools missing locally are skipped, so a partial run is still useful. Configuration in `.yamllint`
-and `.ansible-lint`; `.gitattributes` keeps every text file LF.
+## Add a robot
+
+1. Write the card as described above, put it into the robot, and boot it on a network with internet.
+2. Wait about two minutes, then check that `robotont-N.local` answers to `ping`. If it does not,
+   run the task "0. Find robots" with your network, for example `192.168.1.0/24`, and use the
+   address it prints.
+3. Run "1. Setup Ubuntu" with the address, the robot number, the robot type and whether the
+   camera is fitted. The task takes about five minutes and reboots the robot once.
+4. Run "2. Deploy" with the robot number. The robot pulls its images and starts the `driver`
+   workspace. On a slow connection the pull takes a few minutes; the image is about 4 GB.
+
+The robot now appears on the dashboard. Commit the new file under `inventory/robots/` so that
+the list of robots is shared.
+
+## Everyday use
+
+| You want to | Task | Fields |
+|---|---|---|
+| Find a robot whose name does not resolve | 0. Find robots | Network as CIDR |
+| Prepare a new robot, or change its number | 1. Setup Ubuntu | Address, Robot number, Robot type, Camera |
+| Install or update the software | 2. Deploy | Robot number |
+| Run the driver, a demo or a test | 3. Switch workspace | Robot number, Workspace |
+| Run any container image | 4. Run image | Robot number, Image, Name, Command, Hardware access |
+| Remove a robot | delete its file under `inventory/robots/` and run `up -d` | |
+| Bring in an old robot with ROS installed on it | 1. Setup Ubuntu, then 2. Deploy | its ROS stays usable as the workspace `host` |
+
+Every task works on one robot. A task runs again safely; it only changes what differs.
+
+"4. Run image" runs any image as a workspace on the robot with the standard settings: host
+network, the ROS environment, and optional access to the mainboard, lidar and gamepad. Use it for
+experiments and quick demos. A workspace that needs more, such as several containers or volumes,
+belongs in the repository under `robot/workspaces/`.
+
+## The dashboard
+
+The dashboard lists every robot: online or offline, when it was last seen, whether it is ready
+to drive, its workspace and release, when it was deployed, its devices, temperature, disk and
+uptime. Below the list, each robot has its own block with graphs. Four alerts are shown on the
+page: robot down, service not active, a device claimed but not present, and a device claimed
+twice. Alerts are visible, not sent anywhere.
+
+## Writing a workspace
+
+A workspace is a directory under `robot/workspaces/` with a `compose.yaml`. Copy `demo-example`,
+rename the directory (lowercase letters, digits and hyphens), replace the extra service, and say
+in a label which devices the service opens. Run "2. Deploy" on a robot, then "3. Switch
+workspace". The dropdown in Semaphore lists the directories after the next `up -d`.
+
+## When something does not work
+
+| Symptom | Likely cause |
+|---|---|
+| `robotont-N.local` never answers | The robot had no internet at its first boot. Use "0. Find robots" and the address; "1. Setup Ubuntu" installs the name service. |
+| A task says "Connection refused" or "unreachable" | Wrong address, the robot is off, or on a Linux bench the firewall of the shared connection. Check `ssh peko@<address>` from your computer first. |
+| "1. Setup Ubuntu" fails at the Docker install | A fresh robot is still installing its own updates. Wait a few minutes and run the task again. |
+| "2. Deploy" fails at the pull | The robot has no internet, or the image package is private and the robot is not logged in. |
+| The dashboard shows a robot offline | The robot is off or unreachable. The "last seen" column tells you since when. |
+| A device shows as missing | The cable or the power of the mainboard or lidar. Plug it back in; the robot picks it up without a restart. |
 
 ## Repository layout
 
 ```
-robot/                     deployed to /srv/robotont: workspaces/, images/ (Dockerfiles), releases/ (pinned sources), bin/
-.github/workflows/         images.yml: builds robotont-ros per release and pushes to GHCR; checks.yml: static checks
-playbooks/                 find_robots, setup_ubuntu, deploy, switch_workspace, run_image (Semaphore tasks 0 to 4); setup_ros (legacy);
-                           status (command-line report until Grafana)
-scripts/                   check.sh (static checks), find_robots.py, apply_patches.sh, prometheus_targets.py
-roles/                     robotont_headless (Ubuntu Server prerequisites), robotont_host (hostname, udev, Wi-Fi),
-                           docker, monitoring (node_exporter), robotont_workspaces
-inventory/                 groups.yaml, robots/ (one file per enrolled robot, written by Setup Ubuntu), group_vars
-server/                    Docker Compose for Semaphore (automatic bootstrap), Prometheus and Grafana (prometheus/, grafana/)
-external/robotont-setup/   upstream playbooks for NUC robots (git submodule, pinned; legacy)
-external/robotont-setup-rpi/  the same repository at the Raspberry Pi branch (git submodule, pinned; legacy)
-patches/                   local patches applied to the submodule checkouts at run time (legacy)
-test/                      sample environment for static checks
-docs/                      analysis, mapping, plans, runbooks
+playbooks/        the tasks: find_robots, setup_ubuntu, deploy, switch_workspace, run_image
+roles/            what the tasks do on a robot
+inventory/        the list of robots and their defaults
+robot/            what is deployed to a robot: workspaces, image recipes, release files, tools
+server/           Docker Compose for Semaphore, Prometheus and Grafana
+scripts/          helpers, including check.sh, the static checks that also run in CI
+external/         the upstream robotont-setup playbooks (submodules), kept for old robots
+notes/            working notes of the project, not needed to use it
 ```
 
-## Documentation
+## Glossary
 
-| Document | Content |
-|---|---|
-| [docs/00-host-setup.md](docs/00-host-setup.md) | What the management host needs on Windows, macOS and Linux: Docker, git, mDNS, the network with the robots |
-| [docs/01-repository-map.md](docs/01-repository-map.md) | Which repositories and branches matter, ROS 1 vs ROS 2, versioning conventions found |
-| [docs/02-existing-ansible-analysis.md](docs/02-existing-ansible-analysis.md) | How `robotont-setup` provisions a robot today, task by task, and what blocks fleet use |
-| [docs/03-provisioning-steps-mapping.md](docs/03-provisioning-steps-mapping.md) | Every post-install step and where it lands in the fleet roles and playbooks |
-| [docs/04-software-firmware-versioning.md](docs/04-software-firmware-versioning.md) | Software deployment and versioning, firmware flashing options, monitoring signals |
-| [docs/05-implementation-plan.md](docs/05-implementation-plan.md) | Decisions, target layout, steps with tests, upstream fixes, open questions (later phases) |
-| [docs/06-v1-reproduce-current-setup.md](docs/06-v1-reproduce-current-setup.md) | Legacy host-ROS setup: how the upstream playbooks run from here, the submodules, test log |
-| [docs/07-container-runtime.md](docs/07-container-runtime.md) | Workspaces: switching, images and CI, devices, monitoring hooks, runbook, phases, test log |
-| [docs/semaphore-setup.md](docs/semaphore-setup.md) | The local Semaphore: automatic setup, the tasks and their dialog fields |
-| [docs/08-hardware-test-guide.md](docs/08-hardware-test-guide.md) | Step-by-step manual verification on a robot: host setup, workspaces, known issues |
-| [docs/10-monitoring.md](docs/10-monitoring.md) | node_exporter on the robots, Prometheus and Grafana next to Semaphore, the fleet dashboard, alert rules |
+- **Robot number N**: the number in the hostname `robotont-N`; also the ROS domain and the hotspot address.
+- **Workspace**: what a robot runs; a directory with a compose file; one is active at a time.
+- **Release**: a pinned set of software sources, for example `2026.09-lite`; also the image tag.
+- **Task**: one Semaphore job that works on one robot.
+- **Enrolment**: the file under `inventory/robots/` that "1. Setup Ubuntu" writes for a robot.
+- **Hotspot**: the robot's own Wi-Fi network `robotont-N`, used when no lab Wi-Fi is in range.

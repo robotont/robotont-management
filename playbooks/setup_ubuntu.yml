@@ -72,7 +72,7 @@
       when: robotont_generation == '3lite' and robotont_headless | default(true) | bool
 
 # What robotont-setup did on the host besides ROS (hostname, udev, groups, Wi-Fi), Docker, and
-# node_exporter for the Prometheus in server/compose.yaml (docs/10-monitoring.md).
+# node_exporter for the Prometheus in server/compose.yaml (notes/10-monitoring.md).
 - name: Host configuration, Docker Engine and node_exporter
   hosts: robots
   become: true

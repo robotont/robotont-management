@@ -3,7 +3,7 @@
 How to verify, by hand, the host setup of a robot through Semaphore (Part A) and the workspaces
 on it (Part B, [07](07-container-runtime.md)); the legacy host-ROS path ([06](06-v1-reproduce-current-setup.md))
 is the optional tail of Part A. Every step lists the command, where to run it, what to expect
-and where to look when it fails. Record results in the test logs at the end of docs/06 and docs/07.
+and where to look when it fails. Record results in the test logs at the end of notes/06 and notes/07.
 
 ## 0. Before you have a robot (can be done now)
 
@@ -72,7 +72,7 @@ so Ethernet or the client Wi-Fi profile.
 | B8 Soak | leave the robot on `driver` for a week of normal use | `systemctl show robotont -p NRestarts` low, `docker inspect -f '{{.RestartCount}}' robotont-driver` low, no complaints from students | collect the journal and open an issue |
 
 Write date, robot, image id (`docker image inspect -f '{{.Id}}' ghcr.io/robotont/robotont-ros:<release>`)
-and results into the test log of docs/07.
+and results into the test log of notes/07.
 
 ## Potential issues to test (found on 2026-09-26, robotont-123, Ubuntu Server on a Pi 5)
 
@@ -122,7 +122,7 @@ and results into the test log of docs/07.
    and `/rt<id>/scan` and `/rt<id>/camera/image_raw` publish.
 6. **Driver opens `/dev/ttyACM0`, not `/dev/robotont`** (confirmed in the journal: "Error creating
    serial port: /dev/ttyACM0"). Works as long as the mainboard is the only ACM device. Upstream
-   ask from docs/05 §4 stands. **To test** with the mainboard: `ls -l /dev/robotont /dev/ttyACM0`
+   ask from notes/05 §4 stands. **To test** with the mainboard: `ls -l /dev/robotont /dev/ttyACM0`
    and `ros2 topic hz /rt<id>/odom`.
 
 7. **avahi is only installed when the first boot has internet.** Raspberry Pi Imager puts
@@ -179,7 +179,7 @@ and results into the test log of docs/07.
 
 ## What to report upstream after the tests
 
-- Whether the containerised bringup opens `/dev/robotont` or only `/dev/ttyACM0` (docs/05 §4 item 7).
+- Whether the containerised bringup opens `/dev/robotont` or only `/dev/ttyACM0` (notes/05 §4 item 7).
 - Replug behaviour with the `/dev` bind mount (B5).
 - Gamepad hot-plug inside the container (B4), and whether `SDL_JOYSTICK_DISABLE_UDEV=1` was needed.
 - Anything the `jazzy-devel` bringup does that the `jazzy` one changed, before moving the release pins.

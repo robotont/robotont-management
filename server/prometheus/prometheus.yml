@@ -1,4 +1,4 @@
-# Prometheus for the Robotont fleet (docs/10-monitoring.md). Robots come from targets/robots.json,
+# Prometheus for the Robotont fleet (notes/10-monitoring.md). Robots come from targets/robots.json,
 # rendered from inventory/robots/ by scripts/prometheus_targets.py (bootstrap, 1. Setup Ubuntu).
 global:
   scrape_interval: 15s

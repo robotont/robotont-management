@@ -1,6 +1,6 @@
 # robotont-student image (Phase D3, not built yet)
 
-Planned content (docs/07-container-runtime.md, section "Student environment"): `FROM
+Planned content (notes/07-container-runtime.md, section "Student environment"): `FROM
 robotont-ros:<release>`, `ros-dev-tools`, git, vim, nano, tmux, htop, gdb, `openssh-server` on
 port 2222 (`AllowUsers peko`, `PermitRootLogin no`), user `peko` with uid 1000 (the image's
 `ubuntu` uid-1000 user removed first) and passwordless sudo inside the container, rosdep cache in

@@ -1,5 +1,5 @@
 # Builds the robot images on GitHub's native runners and pushes them to GHCR, so robots pull
-# instead of building (docs/07). One job per release variant: the NUC image on amd64, the Lite
+# instead of building (notes/07). One job per release variant: the NUC image on amd64, the Lite
 # image on arm64. The registry build cache keeps the dependency layer across releases.
 #
 # Images: ghcr.io/<owner>/robotont-ros:<release>. The package must be public for anonymous pulls;

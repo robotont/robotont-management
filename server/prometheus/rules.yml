@@ -1,5 +1,5 @@
 # Alert rules evaluated by Prometheus; no Alertmanager yet, so they show in Prometheus
-# (/alerts) and on the Grafana dashboard, nothing is sent anywhere (docs/10-monitoring.md).
+# (/alerts) and on the Grafana dashboard, nothing is sent anywhere (notes/10-monitoring.md).
 groups:
   - name: robotont-records
     rules:

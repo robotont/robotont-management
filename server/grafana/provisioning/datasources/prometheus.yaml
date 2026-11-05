@@ -1,4 +1,4 @@
-# Grafana datasource, provisioned (docs/10-monitoring.md). The Prometheus of server/compose.yaml.
+# Grafana datasource, provisioned (notes/10-monitoring.md). The Prometheus of server/compose.yaml.
 apiVersion: 1
 datasources:
   - name: Prometheus

@@ -1,5 +1,5 @@
 ---
-# 3. Switch workspace: activate a workspace on ONE robot with the container runtime (docs/07).
+# 3. Switch workspace: activate a workspace on ONE robot with the container runtime (notes/07).
 #   Inputs: robotont_id (Robot number), workspace (a directory under robot/workspaces)
 #   CLI:    ansible-playbook playbooks/switch_workspace.yml -K -e robotont_id=123 -e workspace=driver
 - name: Select the robot

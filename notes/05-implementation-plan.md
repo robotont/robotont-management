@@ -152,7 +152,7 @@ are meant to be separate commits.
 
 - `server/compose.yaml` with `semaphoreui/semaphore` and the embedded SQLite database (a single file, no
   database container), volumes for data and for the fleet SSH key.
-- `docs/semaphore.md`: how to register the repository, the inventory file, the `fleet-admin`
+- `notes/semaphore.md`: how to register the repository, the inventory file, the `fleet-admin`
   key, and one task template per playbook (Provision Robotont, Update Software, Update OS
   packages, Restart Robotont Services, Reboot, Health Check).
 - Test: run "Health Check" from the UI against one robot; run "Provision" against a fresh VM.
